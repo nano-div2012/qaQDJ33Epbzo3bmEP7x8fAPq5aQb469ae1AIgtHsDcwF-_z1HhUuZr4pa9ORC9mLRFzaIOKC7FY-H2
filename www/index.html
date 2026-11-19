@@ -1,11 +1,3180 @@
 <!DOCTYPE html>
-<html>
+<html lang="id" class="dark">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-    <meta http-equiv="Refresh" content="0; url='https://example.com/'" />
-    <script>window.location.replace("https://example.com/");</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>cheapblox — Platform Game 3D, Mabar &amp; Studio Lite</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; user-select: none; }
+
+    .robux-coin {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 5px;
+      border: 2px solid #10B981; color: #10B981; font-size: 10px; font-weight: 900;
+      transform: rotate(12deg); flex-shrink: 0;
+    }
+
+    .roblox-tilt-logo {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 6px;
+      background: #FFFFFF; color: #0F172A; transform: rotate(-14deg);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); flex-shrink: 0;
+    }
+    .roblox-tilt-logo::after {
+      content: ''; width: 8px; height: 8px; background: #0F172A; border-radius: 1.5px;
+    }
+
+    .studio-tool-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 4px 7px; border-radius: 4px; border: 1px solid transparent;
+      font-size: 10px; font-weight: 700; color: #1E293B; cursor: pointer; min-width: 44px;
+      background: transparent;
+    }
+    .studio-tool-btn:hover { background: #E2E8F0; border-color: #94A3B8; }
+    .studio-tool-btn.active { background: #BFDBFE; border-color: #2563EB; color: #1D4ED8; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.38); border-radius: 99px; }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#ffffff;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
-    Redirecting...
+<body class="bg-slate-100 dark:bg-[#0F1115] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+
+  <!-- ==================== TOAST & SERVER ANNOUNCE BANNER ==================== -->
+  <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-[220] pointer-events-none flex flex-col items-center gap-2 w-[92%] max-w-md"></div>
+
+  <div id="server-announce-banner" class="hidden fixed top-14 left-1/2 -translate-x-1/2 z-[200] w-[94%] max-w-xl pointer-events-none">
+    <div class="px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 text-slate-950 shadow-2xl border-2 border-white flex items-center gap-3">
+      <span class="text-xl animate-bounce">👑</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[10px] font-black uppercase tracking-wider opacity-80">PENGUMUMAN SERVER • OWNER</div>
+        <div id="server-announce-text" class="text-xs sm:text-sm font-black truncate">Selamat datang di cheapblox!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 1. AUTHENTICATION MODAL (SHOWN ONLY IF NO SAVED SESSION) ==================== -->
+  <div id="auth-overlay" class="hidden fixed inset-0 z-[180] bg-[#0B0D11]/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-3xl bg-[#161920] border border-white/10 shadow-2xl overflow-hidden text-white">
+      <div class="p-6 pb-4 text-center border-b border-white/10 bg-gradient-to-b from-[#1E232E] to-[#161920]">
+        <div class="inline-flex items-center gap-2.5 mb-2">
+          <span class="roblox-tilt-logo"></span>
+          <span class="text-2xl font-black tracking-tight">cheapblox</span>
+        </div>
+        <p class="text-xs text-slate-400">Akun tersimpan otomatis saat keluar • Modal awal 10 R$</p>
+
+        <div class="grid grid-cols-2 gap-2 mt-4 p-1 rounded-2xl bg-[#0E1015]">
+          <button type="button" id="auth-tab-register" onclick="window.switchAuthTab('register')" class="py-2 rounded-xl text-xs font-extrabold bg-white text-slate-950 transition">Daftar Baru</button>
+          <button type="button" id="auth-tab-login" onclick="window.switchAuthTab('login')" class="py-2 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition">Masuk Akun</button>
+        </div>
+      </div>
+
+      <!-- Daftar Baru -->
+      <form id="auth-form-register" onsubmit="window.handleAuthRegister(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5">Username Pemain</label>
+          <input id="reg-username" type="text" required minlength="3" maxlength="20" placeholder="Misal: Puzie" class="w-full px-3.5 py-2.5 rounded-xl bg-[#0E1015] border border-white/15 text-sm text-white focus:outline-none focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5">Kata Sandi</label>
+          <div class="relative">
+            <input id="reg-password" type="password" required minlength="4" placeholder="Buat kata sandi..." class="w-full pl-3.5 pr-11 py-2.5 rounded-xl bg-[#0E1015] border border-white/15 text-sm text-white focus:outline-none focus:border-blue-500" />
+            <button type="button" onclick="window.togglePasswordVisibility('reg-password', this)" aria-label="Lihat Sandi" class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-white text-sm">👁️</button>
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">
+          Pemain baru mendapat avatar pemula <strong>Puzie</strong>, modal awal <strong>10 R$</strong>, dan otomatis login kembali saat game dibuka lagi.
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-[#00B06F] hover:bg-[#009A60] text-white font-black text-sm shadow-lg transition">
+          Daftar &amp; Masuk ke cheapblox
+        </button>
+      </form>
+
+      <!-- Masuk Akun -->
+      <form id="auth-form-login" onsubmit="window.handleAuthLogin(event)" class="hidden p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5">Username</label>
+          <input id="login-username" type="text" required autocomplete="off" placeholder="Ketik username akunmu..." class="w-full px-3.5 py-2.5 rounded-xl bg-[#0E1015] border border-white/15 text-sm text-white focus:outline-none focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5">Kata Sandi</label>
+          <div class="relative">
+            <input id="login-password" type="password" required autocomplete="off" placeholder="Ketik kata sandi..." class="w-full pl-3.5 pr-11 py-2.5 rounded-xl bg-[#0E1015] border border-white/15 text-sm text-white focus:outline-none focus:border-blue-500" />
+            <button type="button" onclick="window.togglePasswordVisibility('login-password', this)" aria-label="Lihat Sandi" class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-white text-sm">👁️</button>
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-[#0077FF] hover:bg-blue-600 text-white font-black text-sm shadow-lg transition">
+          Masuk Akun
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== SIDEBAR DRAWER ==================== -->
+  <div id="sidebar-backdrop" onclick="window.toggleSidebar(false)" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-[90]"></div>
+  <aside id="sidebar-drawer" class="fixed top-0 left-0 bottom-0 w-72 max-w-[82vw] bg-white dark:bg-[#161920] border-r border-slate-200 dark:border-white/10 z-[100] -translate-x-full transition-transform duration-300 flex flex-col justify-between p-4">
+    <div class="space-y-4 overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shrink-0">🤠</div>
+          <div class="min-w-0">
+            <div id="sidebar-username" class="text-sm font-black truncate">Puzie</div>
+            <div id="sidebar-role-badge" class="text-[11px] text-slate-400 font-bold truncate">Pemain • @Puzie</div>
+          </div>
+        </div>
+        <button type="button" onclick="window.toggleSidebar(false)" aria-label="Tutup Menu" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <nav class="space-y-1 text-sm font-bold">
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('home')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <i class="fa-solid fa-house w-5 text-blue-500"></i><span>Beranda &amp; Map</span>
+        </button>
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('friends')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <span class="flex items-center gap-3"><i class="fa-solid fa-user-group w-5 text-emerald-500"></i><span>👥 Teman &amp; Mabar</span></span>
+          <span id="sidebar-req-badge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white font-black">0</span>
+        </button>
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('avatar')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <i class="fa-solid fa-shirt w-5 text-purple-500"></i><span>Toko Avatar</span>
+        </button>
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('studio')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <i class="fa-solid fa-cubes w-5 text-emerald-500"></i><span>Studio Lite</span>
+        </button>
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('codes')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <i class="fa-solid fa-gift w-5 text-amber-500"></i><span>🎁 Kode Promo</span>
+        </button>
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('chat')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <i class="fa-solid fa-comments w-5 text-sky-500"></i><span>Chat Global &amp; Server</span>
+        </button>
+        <button type="button" onclick="window.toggleSidebar(false); window.navigate('settings')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-left">
+          <i class="fa-solid fa-gear w-5 text-slate-400"></i><span>Pengaturan</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="pt-3 border-t border-slate-200 dark:border-white/10">
+      <button type="button" onclick="window.logoutAccount()" class="w-full py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-extrabold">
+        <i class="fa-solid fa-right-from-bracket mr-1"></i> Keluar Akun
+      </button>
+    </div>
+  </aside>
+
+  <!-- ==================== TOP NAVIGATION BAR ==================== -->
+  <header class="sticky top-0 z-50 h-14 bg-white/90 dark:bg-[#161920]/95 backdrop-blur-md border-b border-slate-200 dark:border-white/10 px-3 sm:px-5 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2.5">
+      <button type="button" onclick="window.toggleSidebar(true)" aria-label="Buka Menu" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10">
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+      <button type="button" onclick="window.navigate('home')" class="flex items-center gap-2">
+        <span class="roblox-tilt-logo"></span>
+        <span class="font-black text-base sm:text-lg tracking-tight">cheapblox</span>
+      </button>
+      <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="online-server-count">1 Online</span>
+      </span>
+    </div>
+
+    <div class="hidden md:flex items-center gap-1 text-xs font-extrabold">
+      <button type="button" onclick="window.navigate('home')" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10">Beranda</button>
+      <button type="button" onclick="window.navigate('friends')" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-emerald-400">👥 Teman</button>
+      <button type="button" onclick="window.navigate('avatar')" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10">Toko Avatar</button>
+      <button type="button" onclick="window.navigate('studio')" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10">Studio Lite</button>
+      <button type="button" onclick="window.navigate('codes')" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-amber-500">🎁 Kode</button>
+      <button type="button" onclick="window.navigate('settings')" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10">Pengaturan</button>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button type="button" onclick="window.navigate('friends')" class="md:hidden px-2.5 py-1.5 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-black relative">
+        👥
+        <span id="header-req-dot" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500"></span>
+      </button>
+      <div class="px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center gap-1.5 text-xs font-black text-emerald-500">
+        <span class="robux-coin">R$</span>
+        <span id="header-robux">10 R$</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN WORKSPACE ==================== -->
+  <main class="flex-1 pb-24 max-w-6xl w-full mx-auto">
+
+    <!-- 1. BERANDA / HOME -->
+    <section id="view-home" class="p-4 space-y-5">
+      <div class="p-4 rounded-3xl bg-gradient-to-r from-[#161920] to-[#1E2536] border border-white/10 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl shadow">🤠</div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-base sm:text-lg font-black">Halo, <span id="home-username">Puzie</span>!</h1>
+              <span id="home-owner-crown" class="hidden px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">👑 OWNER</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-0.5">Mabar real-time tanpa bot • Hadiah tiap map 5–10 R$!</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" onclick="window.navigate('friends')" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black">➕ Tambah Teman</button>
+          <button type="button" onclick="window.navigate('studio')" class="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black">🛠️ Studio Lite</button>
+        </div>
+      </div>
+
+      <!-- Home Friends & Mabar Strip -->
+      <div class="p-4 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 space-y-3 shadow-xs">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-black">👥 Teman &amp; Gabung Map Teman (Mabar)</h2>
+            <span id="home-friend-req-pill" class="hidden px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-black">0 Permintaan</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input id="home-quick-friend-input" type="text" placeholder="Ketik @username..." class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#0F1115] border border-slate-300 dark:border-white/15 text-xs w-36 sm:w-44 focus:outline-none focus:border-blue-500" />
+            <button type="button" onclick="window.quickAddFriendFromHome()" class="px-3 py-1.5 rounded-xl bg-[#00B06F] hover:bg-[#009A60] text-white text-xs font-black">+ Tambah</button>
+          </div>
+        </div>
+        <div id="home-incoming-strip" class="space-y-1.5"></div>
+        <div id="home-friends-strip" class="flex items-center gap-2.5 overflow-x-auto pb-1"></div>
+      </div>
+
+      <!-- Category & Search Bar -->
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <button type="button" onclick="window.filterGames('all')" data-cat="all" class="game-cat-btn px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-blue-600 text-white">Semua</button>
+          <button type="button" onclick="window.filterGames('Non-Obby')" data-cat="Non-Obby" class="game-cat-btn px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">Non-Obby</button>
+          <button type="button" onclick="window.filterGames('Obby')" data-cat="Obby" class="game-cat-btn px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">Obby</button>
+          <button type="button" onclick="window.filterGames('Studio UGC')" data-cat="Studio UGC" class="game-cat-btn px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">Buatan Pemain</button>
+        </div>
+        <input id="home-search-input" oninput="window.handleSearchGames(this.value)" type="text" placeholder="Cari map..." class="px-3.5 py-1.5 rounded-full bg-white dark:bg-[#191C24] border border-slate-300 dark:border-white/10 text-xs w-full sm:w-52 focus:outline-none focus:border-blue-500" />
+      </div>
+
+      <div id="games-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- 2. TEMAN & MABAR HUB -->
+    <section id="view-friends" class="hidden p-4 space-y-5 max-w-3xl mx-auto">
+      <div class="p-5 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 space-y-4 shadow-lg">
+        <div>
+          <h1 class="text-lg font-black">👥 Pertemanan &amp; Gabung Map Teman</h1>
+          <p class="text-xs text-slate-400">Kirim permintaan pertemanan, terima teman masuk, dan gabung ke map yang sedang dimainkan temanmu!</p>
+        </div>
+        <form onsubmit="window.handleSendFriendRequestForm(event)" class="flex gap-2">
+          <input id="friends-search-username" type="text" required placeholder="Ketik username pemain (tanpa @)..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-[#0F1115] border border-slate-300 dark:border-white/15 text-xs font-bold focus:outline-none focus:border-blue-500" />
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs">➕ Tambah Teman</button>
+        </form>
+      </div>
+
+      <div id="incoming-requests-card" class="hidden p-5 rounded-3xl bg-amber-500/10 border border-amber-400/40 space-y-3">
+        <h2 class="text-sm font-black text-amber-400">📩 Permintaan Pertemanan Masuk</h2>
+        <div id="incoming-requests-list" class="space-y-2"></div>
+      </div>
+
+      <div class="p-5 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 space-y-3">
+        <h2 class="text-sm font-black">🤝 Daftar Teman Saya</h2>
+        <div id="friends-full-list" class="space-y-2"></div>
+      </div>
+
+      <div class="p-5 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 space-y-3">
+        <h2 class="text-sm font-black">🌐 Pemain Lain yang Sedang Online</h2>
+        <div id="all-online-players-list" class="space-y-2"></div>
+      </div>
+    </section>
+
+    <!-- 3. TOKO AVATAR & KUSTOMISASI -->
+    <section id="view-avatar" class="hidden p-4 space-y-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 class="text-lg font-black">👤 Toko Avatar &amp; Manekin 3D</h1>
+          <p class="text-xs text-slate-400">Geser manekin 360° • Pakai baju, topi, wajah, Headless Horseman &amp; Korblox</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="window.toggleHeadless(false)" id="btn-equip-headless" class="px-3 py-1.5 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-300 text-xs font-extrabold">🎃 Headless: OFF</button>
+          <button type="button" onclick="window.toggleKorblox(false)" id="btn-equip-korblox" class="px-3 py-1.5 rounded-xl bg-sky-600/20 border border-sky-500/40 text-sky-300 text-xs font-extrabold">🦴 Korblox: OFF</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-3xl bg-gradient-to-b from-sky-900/30 to-[#161920] border border-white/10 p-3 flex flex-col items-center">
+          <canvas id="avatar-preview-canvas" class="w-full h-64 rounded-2xl cursor-grab active:cursor-grabbing touch-none"></canvas>
+          <div class="flex items-center gap-2 mt-2">
+            <span class="text-[11px] font-bold text-slate-400">Warna Kulit:</span>
+            <button type="button" onclick="window.changeSkinColor('#FCD34D')" aria-label="Kuning" class="w-5 h-5 rounded-full bg-[#FCD34D] border border-white"></button>
+            <button type="button" onclick="window.changeSkinColor('#FDBA74')" aria-label="Peach" class="w-5 h-5 rounded-full bg-[#FDBA74] border border-white"></button>
+            <button type="button" onclick="window.changeSkinColor('#A16207')" aria-label="Sawo Matang" class="w-5 h-5 rounded-full bg-[#A16207] border border-white"></button>
+            <button type="button" onclick="window.changeSkinColor('#E2E8F0')" aria-label="Terang" class="w-5 h-5 rounded-full bg-[#E2E8F0] border border-white"></button>
+          </div>
+        </div>
+
+        <div class="md:col-span-2 space-y-3">
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <button type="button" onclick="window.filterShop('all')" data-scat="all" class="shop-cat-btn px-3 py-1.5 rounded-full text-xs font-extrabold bg-blue-600 text-white">Semua</button>
+            <button type="button" onclick="window.filterShop('shirt')" data-scat="shirt" class="shop-cat-btn px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">Baju</button>
+            <button type="button" onclick="window.filterShop('pants')" data-scat="pants" class="shop-cat-btn px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">Celana</button>
+            <button type="button" onclick="window.filterShop('hat')" data-scat="hat" class="shop-cat-btn px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">Topi</button>
+            <button type="button" onclick="window.filterShop('ugc')" data-scat="ugc" class="shop-cat-btn px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-200 dark:bg-[#191C24]">UGC Pemain</button>
+          </div>
+          <div id="avatar-shop-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. CLASSIC ROBLOX STUDIO LITE & 360° UGC DESIGNER -->
+    <section id="view-studio" class="hidden p-2 sm:p-4">
+      <div class="rounded-2xl overflow-hidden border border-slate-400 bg-[#E2E8F0] text-slate-900 shadow-2xl flex flex-col">
+        <div class="bg-[#FEF08A] border-b border-slate-400 px-2 py-1 flex items-center justify-between flex-wrap gap-1 text-xs font-black">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="relative">
+              <button type="button" onclick="window.toggleStudioFileMenu()" class="px-2.5 py-1 bg-[#FDE047] hover:bg-amber-300 border border-slate-500 rounded-xs">FILE ▾</button>
+              <div id="studio-file-menu" class="hidden absolute left-0 top-full mt-1 w-52 bg-white border border-slate-400 shadow-xl z-30 py-1 text-xs font-bold">
+                <button type="button" onclick="window.toggleStudioFileMenu(false); window.publishStudioMap()" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white">🚀 Publish Map to cheapblox</button>
+                <button type="button" onclick="window.toggleStudioFileMenu(false); window.saveStudioDraft()" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white">💾 Save Draft</button>
+                <button type="button" onclick="window.toggleStudioFileMenu(false); window.testStudioMap()" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white">▶️ Play Test Map</button>
+                <button type="button" onclick="window.toggleStudioFileMenu(false); window.switchStudioTab('ugc')" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white">👑 UGC Designer</button>
+              </div>
+            </div>
+            <button type="button" onclick="window.switchStudioTab('map')" id="studio-tab-map" class="px-2.5 py-1 bg-white border border-slate-500 rounded-xs">SPLASH</button>
+            <button type="button" onclick="window.switchStudioTab('ugc')" id="studio-tab-ugc" class="px-2.5 py-1 bg-[#FDE047] hover:bg-amber-300 border border-slate-500 rounded-xs">UGC Designer</button>
+            <button type="button" onclick="window.navigate('home')" class="px-2.5 py-1 bg-slate-800 text-white rounded-xs">Back to cheapblox</button>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input id="studio-map-title" type="text" value="Baseplate Map Baru" class="px-2 py-0.5 bg-white border border-slate-400 rounded-xs text-xs font-bold w-36" />
+            <button type="button" onclick="window.publishStudioMap()" class="px-2.5 py-1 bg-emerald-600 text-white rounded-xs font-black">Publish</button>
+          </div>
+        </div>
+
+        <div id="studio-panel-map" class="flex flex-col">
+          <div class="bg-[#F8FAFC] border-b border-slate-400 px-2 py-1 flex items-center gap-1 overflow-x-auto">
+            <button type="button" onclick="window.setStudioTool('select')" id="st-tool-select" class="studio-tool-btn active"><i class="fa-solid fa-arrow-pointer text-blue-600"></i><span>Select</span></button>
+            <button type="button" onclick="window.setStudioTool('move')" id="st-tool-move" class="studio-tool-btn"><i class="fa-solid fa-arrows-up-down-left-right text-emerald-600"></i><span>Move</span></button>
+            <button type="button" onclick="window.setStudioTool('scale')" id="st-tool-scale" class="studio-tool-btn"><i class="fa-solid fa-expand text-indigo-600"></i><span>Scale</span></button>
+            <button type="button" onclick="window.setStudioTool('rotate')" id="st-tool-rotate" class="studio-tool-btn"><i class="fa-solid fa-rotate text-amber-600"></i><span>Rotate</span></button>
+            <div class="h-7 w-[1px] bg-slate-300 mx-1"></div>
+            <button type="button" onclick="window.testStudioMap()" class="studio-tool-btn"><i class="fa-solid fa-play text-emerald-600"></i><span>Play</span></button>
+            <button type="button" onclick="window.toggleStudioToolbox()" class="studio-tool-btn"><i class="fa-solid fa-toolbox text-amber-700"></i><span>Toolbox</span></button>
+            <button type="button" onclick="window.addStudioPart('platform')" class="studio-tool-btn"><i class="fa-solid fa-cube text-blue-600"></i><span>Part Insert</span></button>
+            <div class="h-7 w-[1px] bg-slate-300 mx-1"></div>
+            <div class="flex flex-col gap-0.5 text-[10px] font-bold px-1">
+              <label class="flex items-center gap-1"><input id="studio-snap-rot" type="number" value="5" class="w-9 px-1 border border-slate-400 bg-white" /> Rotate</label>
+              <label class="flex items-center gap-1"><input id="studio-snap-move" type="number" value="1" class="w-9 px-1 border border-slate-400 bg-white" /> Move</label>
+            </div>
+            <div class="h-7 w-[1px] bg-slate-300 mx-1"></div>
+            <button type="button" onclick="window.duplicateStudioPart()" class="studio-tool-btn"><i class="fa-regular fa-clone"></i><span>Dupli</span></button>
+            <button type="button" onclick="window.pasteStudioPart()" class="studio-tool-btn"><i class="fa-regular fa-paste"></i><span>Paste into</span></button>
+            <button type="button" onclick="window.copyStudioPart()" class="studio-tool-btn"><i class="fa-regular fa-copy"></i><span>Copy</span></button>
+            <button type="button" onclick="window.deleteStudioPart()" class="studio-tool-btn text-red-600"><i class="fa-solid fa-scissors"></i><span>Cut/delete</span></button>
+            <button type="button" onclick="window.showToast('📦 Model digabung ke dalam Group!')" class="studio-tool-btn"><i class="fa-regular fa-object-group"></i><span>Group</span></button>
+            <button type="button" onclick="window.toggleStudioMultiSelect()" id="st-multi-btn" class="studio-tool-btn"><i class="fa-solid fa-diagram-project"></i><span>Select Multi</span></button>
+          </div>
+
+          <div class="flex flex-col lg:flex-row min-h-[460px] relative">
+            <div class="relative flex-1 bg-[#87CEEB] min-h-[320px]">
+              <canvas id="studio-3d-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing touch-none"></canvas>
+
+              <div id="studio-toolbox-popup" class="hidden absolute top-2 left-2 z-20 w-52 bg-white/95 border border-slate-400 rounded-sm shadow-xl p-2 space-y-1 text-xs">
+                <div class="font-black border-b pb-1 flex justify-between"><span>Toolbox Parts</span><button type="button" onclick="window.toggleStudioToolbox(false)">✕</button></div>
+                <button type="button" onclick="window.addStudioPart('platform')" class="w-full text-left px-2 py-1 hover:bg-blue-100 rounded-xs">🟦 Platform Block</button>
+                <button type="button" onclick="window.addStudioPart('checkpoint')" class="w-full text-left px-2 py-1 hover:bg-amber-100 rounded-xs">🚩 Checkpoint</button>
+                <button type="button" onclick="window.addStudioPart('killbrick')" class="w-full text-left px-2 py-1 hover:bg-red-100 rounded-xs">🟥 KillBrick Lava</button>
+                <button type="button" onclick="window.addStudioPart('trampoline')" class="w-full text-left px-2 py-1 hover:bg-emerald-100 rounded-xs">🟩 Trampolin</button>
+                <button type="button" onclick="window.addStudioPart('coin')" class="w-full text-left px-2 py-1 hover:bg-yellow-100 rounded-xs">🪙 Koin Robux</button>
+                <button type="button" onclick="window.addStudioPart('finish')" class="w-full text-left px-2 py-1 hover:bg-purple-100 rounded-xs">🏆 Finish Pad</button>
+              </div>
+
+              <div class="absolute bottom-2 left-2 z-20 bg-white/95 border border-slate-400 px-2 py-1 rounded-xs flex items-center gap-1 flex-wrap text-[10px] font-black shadow">
+                <span>Gizmo:</span>
+                <button type="button" onclick="window.nudgeStudioPart(-1,0,0)" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300">-X</button>
+                <button type="button" onclick="window.nudgeStudioPart(1,0,0)" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300">+X</button>
+                <button type="button" onclick="window.nudgeStudioPart(0,1,0)" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300">+Y</button>
+                <button type="button" onclick="window.nudgeStudioPart(0,-1,0)" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300">-Y</button>
+                <button type="button" onclick="window.nudgeStudioPart(0,0,-1)" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300">-Z</button>
+                <button type="button" onclick="window.nudgeStudioPart(0,0,1)" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300">+Z</button>
+                <button type="button" onclick="window.rotateStudioPart()" class="px-1.5 py-0.5 bg-amber-200 hover:bg-amber-300">↻ Rot</button>
+                <button type="button" onclick="window.scaleStudioPart(1.2)" class="px-1.5 py-0.5 bg-blue-200 hover:bg-blue-300">⤢ +</button>
+              </div>
+            </div>
+
+            <div id="studio-resizer" class="hidden lg:flex items-center justify-center w-4 bg-slate-300 hover:bg-blue-400 border-x border-slate-400 cursor-col-resize">
+              <span class="text-[9px] font-black tracking-tighter [writing-mode:vertical-rl] rotate-180 text-slate-700">Drag to resize</span>
+            </div>
+
+            <div id="studio-sidebar-panel" class="w-full lg:w-72 bg-[#F1F5F9] border-t lg:border-t-0 border-slate-400 flex flex-col shrink-0">
+              <div class="border-b border-slate-400 flex flex-col h-56">
+                <div class="px-2.5 py-1 bg-white border-b border-slate-300 text-xs font-black flex justify-between">
+                  <span>Explorer</span><span class="text-[10px] text-slate-400">Hierarchy</span>
+                </div>
+                <div id="studio-explorer-list" class="flex-1 overflow-y-auto p-1.5 text-xs space-y-0.5"></div>
+              </div>
+              <div class="flex-1 flex flex-col min-h-[210px]">
+                <div class="px-2.5 py-1 bg-white border-b border-slate-300 text-xs font-black">Properties</div>
+                <div id="studio-properties-panel" class="p-2.5 space-y-2 text-[11px] overflow-y-auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="studio-panel-ugc" class="hidden p-4 bg-[#161920] text-white grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-2xl bg-[#0F1115] border border-white/10 p-3 flex flex-col items-center">
+            <div class="text-xs font-extrabold text-slate-300 mb-1">Geser manekin 3D untuk memutar 360°</div>
+            <canvas id="studio-ugc-canvas" class="w-full h-64 rounded-xl cursor-grab active:cursor-grabbing touch-none"></canvas>
+          </div>
+          <div class="space-y-3">
+            <h2 class="text-base font-black text-amber-400">👑 UGC Avatar Designer (360°)</h2>
+            <div>
+              <label class="text-xs font-bold text-slate-300">Nama Item</label>
+              <input id="ugc-item-name" type="text" placeholder="Contoh: Mahkota Galaxy" class="w-full mt-1 px-3 py-2 rounded-xl bg-[#0F1115] border border-white/15 text-xs" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-xs font-bold text-slate-300">Tipe</label>
+                <select id="ugc-item-type" onchange="window.updateUgcMannequin()" class="w-full mt-1 px-3 py-2 rounded-xl bg-[#0F1115] border border-white/15 text-xs">
+                  <option value="hat">Topi / Aksesoris</option>
+                  <option value="shirt">Baju / Kaos</option>
+                  <option value="pants">Celana</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-300">Warna</label>
+                <input id="ugc-item-color" type="color" value="#FACC15" onchange="window.updateUgcMannequin()" class="w-full mt-1 h-9 rounded-xl bg-[#0F1115] border border-white/15" />
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-300">Harga (R$)</label>
+              <input id="ugc-item-price" type="number" min="0" value="5" class="w-full mt-1 px-3 py-2 rounded-xl bg-[#0F1115] border border-white/15 text-xs" />
+            </div>
+            <button type="button" onclick="window.publishUgcToShop()" class="w-full py-3 rounded-xl bg-[#00B06F] hover:bg-[#009A60] text-white font-black text-xs shadow-lg">
+              ✨ Publish ke Toko Avatar
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. KODE PROMO & REDEEM -->
+    <section id="view-codes" class="hidden p-4 space-y-5 max-w-2xl mx-auto">
+      <div class="p-5 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 shadow-lg space-y-3">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">🎁</span>
+          <div>
+            <h1 class="text-lg font-black">Redeem Kode Promo</h1>
+            <p class="text-xs text-slate-400">Masukkan kode promo buatan Owner untuk klaim Robux!</p>
+          </div>
+        </div>
+        <form onsubmit="window.handleRedeemCode(event)" class="flex gap-2">
+          <input id="redeem-code-input" type="text" required placeholder="KETIK KODE..." class="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-[#0F1115] border border-slate-300 dark:border-white/15 text-sm font-black uppercase tracking-wider focus:outline-none focus:border-amber-400" />
+          <button type="submit" class="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm shadow">Redeem</button>
+        </form>
+      </div>
+
+      <div id="owner-code-creator-panel" class="hidden p-5 rounded-3xl bg-gradient-to-br from-amber-500/15 to-[#161920] border-2 border-amber-400/50 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-black text-amber-400">👑 Buat Kode Promo (Khusus Owner)</h2>
+          <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black">OWNER ONLY</span>
+        </div>
+        <form onsubmit="window.handleCreatePromoCode(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <input id="new-promo-code" type="text" required placeholder="Kode (mis. VIP100)" class="px-3.5 py-2.5 rounded-xl bg-[#0F1115] border border-white/15 text-xs font-black uppercase text-white" />
+          <input id="new-promo-reward" type="number" required min="1" value="50" placeholder="Hadiah R$" class="px-3.5 py-2.5 rounded-xl bg-[#0F1115] border border-white/15 text-xs font-black text-white" />
+          <button type="submit" class="py-2.5 px-4 rounded-xl bg-[#00B06F] hover:bg-[#009A60] text-white font-black text-xs">+ Buat Kode</button>
+        </form>
+        <div class="space-y-2">
+          <div class="text-xs font-extrabold text-slate-300">Kode Aktif:</div>
+          <div id="active-promo-codes-list" class="space-y-1.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. CHAT SERVER & GLOBAL -->
+    <section id="view-chat" class="hidden p-4 space-y-4 max-w-3xl mx-auto">
+      <div class="p-4 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h1 class="text-lg font-black">💬 Chat Server &amp; Global</h1>
+          <div class="flex gap-1 bg-slate-100 dark:bg-[#0F1115] p-1 rounded-xl text-xs font-extrabold">
+            <button type="button" onclick="window.switchLobbyChatTab('server')" id="lchat-tab-server" class="px-3 py-1 rounded-lg bg-blue-600 text-white">Server</button>
+            <button type="button" onclick="window.switchLobbyChatTab('global')" id="lchat-tab-global" class="px-3 py-1 rounded-lg text-slate-400">Global</button>
+          </div>
+        </div>
+        <div id="lobby-chat-box" class="h-64 overflow-y-auto p-3 rounded-2xl bg-slate-100 dark:bg-[#0F1115] space-y-2 text-xs"></div>
+        <form onsubmit="window.sendLobbyChat(event)" class="flex gap-2">
+          <input id="lobby-chat-input" type="text" required placeholder="Ketik pesan..." class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-[#0F1115] border border-slate-300 dark:border-white/15 text-xs" />
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-black text-xs">Kirim</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 7. PENGATURAN -->
+    <section id="view-settings" class="hidden p-4 space-y-4 max-w-xl mx-auto">
+      <div class="p-5 rounded-3xl bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 space-y-4">
+        <h1 class="text-lg font-black">⚙️ Pengaturan Akun &amp; Tampilan</h1>
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-slate-400">Username Akun Aktif</label>
+          <div class="flex gap-2">
+            <input id="settings-username-input" type="text" maxlength="20" class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-[#0F1115] border border-slate-300 dark:border-white/15 text-sm font-bold" />
+            <button type="button" onclick="window.saveSettingsUsername()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs">Simpan</button>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-slate-400">Tema</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="window.setAppTheme('dark')" class="py-2.5 rounded-xl bg-slate-900 text-white text-xs font-extrabold border border-white/15">🌙 Gelap</button>
+            <button type="button" onclick="window.setAppTheme('light')" class="py-2.5 rounded-xl bg-slate-200 text-slate-900 text-xs font-extrabold">☀️ Terang</button>
+          </div>
+        </div>
+        <div class="pt-3 border-t border-slate-200 dark:border-white/10">
+          <button type="button" onclick="window.logoutAccount()" class="w-full py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 text-xs font-black">
+            🚪 Keluar Akun (Logout)
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MOBILE BOTTOM NAV ==================== -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 dark:bg-[#161920]/95 backdrop-blur-md border-t border-slate-200 dark:border-white/10 z-40 grid grid-cols-5 text-[11px] font-extrabold">
+    <button type="button" onclick="window.navigate('home')" class="flex flex-col items-center justify-center gap-1 text-blue-500"><i class="fa-solid fa-house text-base"></i><span>Beranda</span></button>
+    <button type="button" onclick="window.navigate('friends')" class="flex flex-col items-center justify-center gap-1 text-emerald-400"><i class="fa-solid fa-user-group text-base"></i><span>Teman</span></button>
+    <button type="button" onclick="window.navigate('avatar')" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-shirt text-base"></i><span>Toko</span></button>
+    <button type="button" onclick="window.navigate('studio')" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-cubes text-base"></i><span>Studio</span></button>
+    <button type="button" onclick="window.navigate('codes')" class="flex flex-col items-center justify-center gap-1 text-amber-400"><i class="fa-solid fa-gift text-base"></i><span>Kode</span></button>
+  </nav>
+
+  <!-- ==================== FULLSCREEN 3D GAMEPLAY OVERLAY ==================== -->
+  <div id="game-overlay" class="hidden fixed inset-0 z-[130] bg-black flex-col">
+    <canvas id="game-3d-canvas" class="w-full h-full block touch-none"></canvas>
+
+    <!-- Top HUD -->
+    <div class="fixed top-3 left-3 right-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
+      <div class="flex items-center gap-2 pointer-events-auto flex-wrap">
+        <button type="button" onclick="window.toggleInGameMenu()" aria-label="Menu & Grafik" class="w-10 h-10 rounded-xl bg-black/70 hover:bg-black/90 border border-white/20 flex items-center justify-center shadow-lg">
+          <span class="roblox-tilt-logo scale-75"></span>
+        </button>
+        <button type="button" onclick="window.toggleInGameChat()" aria-label="Chat" class="w-10 h-10 rounded-xl bg-black/70 hover:bg-black/90 text-white border border-white/20 flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-comment-dots"></i>
+        </button>
+        <button type="button" onclick="window.toggleInGamePlayersModal()" aria-label="Player & Teman" class="px-3 h-10 rounded-xl bg-black/70 hover:bg-black/90 text-emerald-300 border border-white/20 flex items-center gap-1.5 text-xs font-black shadow-lg">
+          <i class="fa-solid fa-users"></i>
+          <span id="hud-server-players-count">1</span>
+        </button>
+        <button type="button" onclick="window.toggleEmoteWheel()" aria-label="Emote" class="w-10 h-10 rounded-xl bg-black/70 hover:bg-black/90 text-amber-300 border border-white/20 flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-face-laugh-beam"></i>
+        </button>
+        <button id="btn-admin-abyus" type="button" onclick="window.toggleAdminAbyusPanel()" class="hidden px-3.5 h-10 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 text-slate-950 font-black text-xs shadow-xl border-2 border-white flex items-center gap-1.5">
+          <span>👑</span><span>ADMIN ABYUS</span>
+        </button>
+        <div class="px-3 py-1.5 rounded-xl bg-black/65 text-white border border-white/15 backdrop-blur-md">
+          <div id="hud-map-title" class="text-xs font-black">Mega Obby Pelangi</div>
+          <div id="hud-map-status" class="text-[10px] text-amber-300 font-bold">Stage 1</div>
+        </div>
+      </div>
+
+      <div class="px-3 py-1.5 rounded-full bg-black/70 border border-emerald-400/40 text-emerald-400 text-xs font-black flex items-center gap-1.5 pointer-events-auto">
+        <span class="robux-coin">R$</span>
+        <span id="hud-robux-count">10 R$</span>
+      </div>
+    </div>
+
+    <!-- In-Game Real Players & Add Friend Modal -->
+    <div id="ingame-players-modal" class="hidden fixed top-16 right-3 z-40 w-80 max-w-[92vw] max-h-[75vh] overflow-y-auto rounded-3xl bg-[#161920]/95 backdrop-blur-md border border-white/15 text-white p-4 space-y-3 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-2">
+        <span class="text-xs font-black text-emerald-400">👥 Player di Map &amp; Gabung Teman</span>
+        <button type="button" onclick="window.toggleInGamePlayersModal(false)" class="text-xs text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-extrabold text-slate-300">Player Aktif di Map Ini:</div>
+        <div id="ingame-same-map-list" class="space-y-1.5"></div>
+      </div>
+      <div class="space-y-1.5 pt-2 border-t border-white/10">
+        <div class="text-[11px] font-extrabold text-sky-300">Teman Online (Klik Gabung Map):</div>
+        <div id="ingame-friends-join-list" class="space-y-1.5"></div>
+      </div>
+    </div>
+
+    <!-- In-Game Menu Modal (Graphics & Camera) -->
+    <div id="ingame-menu-modal" class="hidden fixed top-16 left-3 z-40 w-72 rounded-2xl bg-[#161920]/95 text-white border border-white/15 p-4 space-y-3 shadow-2xl backdrop-blur-md">
+      <div class="flex items-center justify-between border-b border-white/10 pb-2">
+        <span class="text-xs font-black">⚙️ Pengaturan Game &amp; Grafik</span>
+        <button type="button" onclick="window.toggleInGameMenu(false)" class="text-xs text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="space-y-1">
+        <div class="text-[11px] font-bold text-slate-300">Mode Grafik:</div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" onclick="window.setGameGraphics('low')" id="gfx-low" class="py-1.5 rounded-lg text-[11px] font-extrabold bg-white/10">Rendah</button>
+          <button type="button" onclick="window.setGameGraphics('medium')" id="gfx-medium" class="py-1.5 rounded-lg text-[11px] font-extrabold bg-blue-600 text-white">Sedang</button>
+          <button type="button" onclick="window.setGameGraphics('high')" id="gfx-high" class="py-1.5 rounded-lg text-[11px] font-extrabold bg-white/10">Tinggi</button>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <div class="text-[11px] font-bold text-slate-300">Kamera &amp; Zoom:</div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" onclick="window.toggleFirstPerson()" id="btn-fp-toggle" class="py-1.5 rounded-lg text-[11px] font-extrabold bg-white/10">3rd Person</button>
+          <button type="button" onclick="window.zoomGameCamera(-2.5)" class="py-1.5 rounded-lg text-[11px] font-extrabold bg-white/10">Zoom +</button>
+          <button type="button" onclick="window.zoomGameCamera(2.5)" class="py-1.5 rounded-lg text-[11px] font-extrabold bg-white/10">Zoom -</button>
+        </div>
+      </div>
+      <button type="button" onclick="window.respawnPlayer(); window.toggleInGameMenu(false)" class="w-full py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-extrabold">🔄 Respawn</button>
+      <button type="button" onclick="window.exitGameOverlay()" class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black">🚪 Keluar Map</button>
+    </div>
+
+    <!-- Emote Panel -->
+    <div id="ingame-emote-panel" class="hidden fixed top-16 left-28 z-40 w-44 rounded-2xl bg-[#161920]/95 text-white border border-white/15 p-2 space-y-1 shadow-2xl text-xs font-extrabold">
+      <button type="button" onclick="window.setPlayerEmote('wave')" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-white/10">👋 Wave</button>
+      <button type="button" onclick="window.setPlayerEmote('dance')" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-white/10">💃 Dance</button>
+      <button type="button" onclick="window.setPlayerEmote('cheer')" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-white/10">🙌 Cheer</button>
+      <button type="button" onclick="window.setPlayerEmote('sit')" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-white/10">🪑 Sit</button>
+    </div>
+
+    <!-- In-Game Chat Box -->
+    <div id="ingame-chat-box" class="hidden fixed top-16 left-3 z-30 w-80 max-w-[90vw] rounded-2xl bg-black/75 backdrop-blur-md border border-white/15 text-white p-3 space-y-2 shadow-2xl">
+      <div class="flex items-center justify-between text-[11px] font-extrabold border-b border-white/10 pb-1.5">
+        <div class="flex gap-1.5">
+          <button type="button" onclick="window.switchInGameChatTab('server')" id="ig-tab-server" class="px-2 py-0.5 rounded bg-blue-600">Server</button>
+          <button type="button" onclick="window.switchInGameChatTab('global')" id="ig-tab-global" class="px-2 py-0.5 rounded bg-white/10">Global</button>
+        </div>
+        <button type="button" onclick="window.toggleInGameChat()" class="text-slate-400">✕</button>
+      </div>
+      <div id="ingame-chat-messages" class="h-36 overflow-y-auto space-y-1 text-xs"></div>
+      <form onsubmit="window.sendInGameChat(event)" class="flex gap-1.5">
+        <input id="ingame-chat-input" type="text" required placeholder="Ketik pesan (muncul di atas kepala)..." class="flex-1 px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-white focus:outline-none" />
+        <button type="submit" class="px-3 py-1.5 rounded-lg bg-blue-600 text-xs font-black">Kirim</button>
+      </form>
+    </div>
+
+    <!-- ==================== OWNER-ONLY IN-GAME 👑 ADMIN ABYUS MENU ==================== -->
+    <div id="admin-abyus-panel" class="hidden fixed top-16 right-3 z-40 w-80 max-w-[92vw] max-h-[78vh] overflow-y-auto rounded-3xl bg-[#12151E]/95 backdrop-blur-md border-2 border-amber-400 text-white p-4 space-y-3.5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-amber-400/30 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">👑</span>
+          <div>
+            <div class="text-xs font-black text-amber-400">ADMIN ABYUS</div>
+            <div class="text-[10px] text-slate-400">Owner Special Powers</div>
+          </div>
+        </div>
+        <button type="button" onclick="window.toggleAdminAbyusPanel(false)" class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs">✕</button>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-[11px] font-black text-amber-300">📢 Chat Announce (Semua Player)</label>
+        <form onsubmit="window.adminSendAnnounce(event)" class="flex gap-1.5">
+          <input id="admin-announce-input" type="text" required placeholder="Pengumuman server..." class="flex-1 px-2.5 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white" />
+          <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs">Kirim</button>
+        </form>
+      </div>
+
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-black text-purple-300">⚡ Trigger Events</div>
+        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-extrabold">
+          <button type="button" onclick="window.adminTriggerEvent('robux_rain')" class="py-2 px-2 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/40 text-yellow-300">🪙 Hujan Robux</button>
+          <button type="button" onclick="window.adminTriggerEvent('tsunami')" class="py-2 px-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-300">🌊 Tsunami Raksasa</button>
+          <button type="button" onclick="window.adminTriggerEvent('disco')" class="py-2 px-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-300">🪩 Disco Party</button>
+          <button type="button" onclick="window.adminTriggerEvent('low_gravity')" class="py-2 px-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-300">🌙 Low Gravity</button>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-black text-emerald-300">✨ Spawn Objek &amp; Robux</div>
+        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-extrabold">
+          <button type="button" onclick="window.adminSpawnObject('coin')" class="py-2 px-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300">🪙 Spawn Robux</button>
+          <button type="button" onclick="window.adminSpawnObject('brainrot')" class="py-2 px-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/40 text-orange-300">🧠 Spawn Brainrot</button>
+          <button type="button" onclick="window.adminSpawnObject('trampoline')" class="py-2 px-2 rounded-xl bg-lime-500/20 hover:bg-lime-500/30 border border-lime-400/40 text-lime-300">🟩 Spawn Trampolin</button>
+          <button type="button" onclick="window.adminSpawnObject('giant_part')" class="py-2 px-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300">🧱 Giant Part</button>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-[11px] font-black text-emerald-300">💸 Kasih Robux (Nama Player atau "All")</label>
+        <form onsubmit="window.adminGiveRobux(event)" class="space-y-1.5">
+          <div class="grid grid-cols-2 gap-1.5">
+            <input id="admin-robux-target" type="text" required placeholder="Nama / All" value="All" class="px-2.5 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs font-bold text-white" />
+            <input id="admin-robux-amount" type="number" required min="1" value="100" class="px-2.5 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs font-bold text-white" />
+          </div>
+          <button type="submit" class="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs">Kirim Robux</button>
+        </form>
+      </div>
+
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-black text-rose-300">🔥 Headless, Korblox &amp; Powers</div>
+        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-extrabold">
+          <button type="button" onclick="window.toggleHeadless(true)" class="py-2 px-2 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-200">🎃 Headless</button>
+          <button type="button" onclick="window.toggleKorblox(true)" class="py-2 px-2 rounded-xl bg-sky-600/30 border border-sky-400/40 text-sky-200">🦴 Korblox Leg</button>
+          <button type="button" onclick="window.toggleOwnerPower('speed')" id="btn-pwr-speed" class="py-2 px-2 rounded-xl bg-white/10 border border-white/15">⚡ Speed: OFF</button>
+          <button type="button" onclick="window.toggleOwnerPower('fly')" id="btn-pwr-fly" class="py-2 px-2 rounded-xl bg-white/10 border border-white/15">🕊️ Fly: OFF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Virtual Joystick + Jump -->
+    <div class="fixed bottom-5 left-5 right-5 z-30 flex items-end justify-between pointer-events-none">
+      <div id="joystick-zone" class="w-28 h-28 rounded-full bg-white/15 border border-white/25 backdrop-blur-xs relative flex items-center justify-center pointer-events-auto touch-none">
+        <div id="joystick-knob" class="w-11 h-11 rounded-full bg-white/80 shadow-lg transition-transform duration-75"></div>
+      </div>
+      <button type="button" onmousedown="window.triggerJump()" ontouchstart="event.preventDefault(); window.triggerJump()" aria-label="Lompat" class="w-20 h-20 rounded-full bg-emerald-500/80 active:bg-emerald-400 border-2 border-white/50 text-white font-black text-sm shadow-2xl pointer-events-auto flex items-center justify-center">
+        LOMPAT
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== APPLICATION SCRIPT ==================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      const OWNER_USN = 'Owner_Cheaplox';
+      const OWNER_PWD = 'Owner_Cheapblox_Ganteng';
+      const SESSION_ID = 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+
+      // Persistent Storage Keys
+      const LS_ACCOUNTS_KEY = 'cheapblox_accounts_v6';     // { [lowerUsn]: { username, password, coins, skinColor, ownedItems, equipped, headless, korblox, friends, incomingRequests, redeemedCodes } }
+      const LS_ACTIVE_USER_KEY = 'cheapblox_active_usn_v6'; // string username (auto-login on reload)
+      const LS_WORLD_KEY = 'cheapblox_world_v6';           // { customMaps, deletedBuiltinMapIds, ugcItems, promoCodes, serverChat, globalChat }
+
+      const BUILTIN_MAPS = [
+        {
+          id: 'steal-a-brainrot',
+          title: 'Steal a Brainrot 🧠',
+          creator: 'BrainrotStudio',
+          genre: 'Non-Obby',
+          emoji: '🧠',
+          rating: '99%',
+          bgGradient: 'linear-gradient(135deg, #4F46E5 0%, #EC4899 100%)',
+          desc: 'Ambil karakter Brainrot di zona merah dan bawa ke zona hijau! Hadiah 5–10 R$.'
+        },
+        {
+          id: 'escape-tsunami',
+          title: 'Escape Tsunami 🌊',
+          creator: 'WaveGames',
+          genre: 'Non-Obby',
+          emoji: '🌊',
+          rating: '98%',
+          bgGradient: 'linear-gradient(135deg, #0284C7 0%, #10B981 100%)',
+          desc: 'Lari dan naik ke menara hijau sebelum gelombang tsunami menerjang! Hadiah 5–10 R$.'
+        },
+        {
+          id: 'tycoon-pabrik',
+          title: 'Tycoon Pabrik Robux 🏭',
+          creator: 'TycoonMaster',
+          genre: 'Non-Obby',
+          emoji: '🏭',
+          rating: '97%',
+          bgGradient: 'linear-gradient(135deg, #059669 0%, #F59E0B 100%)',
+          desc: 'Injak tombol hijau untuk membangun mesin dropper! Hadiah 5–10 R$.'
+        },
+        {
+          id: 'mega-obby-pelangi',
+          title: 'Mega Obby Pelangi 🌈',
+          creator: 'ObbyKing',
+          genre: 'Obby',
+          emoji: '🌈',
+          rating: '96%',
+          bgGradient: 'linear-gradient(135deg, #EF4444 0%, #8B5CF6 100%)',
+          desc: 'Lewati rintangan balok pelangi hingga menyentuh platform finish! Hadiah 5–10 R$.'
+        },
+        {
+          id: 'menara-lava-obby',
+          title: 'Menara Lava Obby 🔥',
+          creator: 'LavaDev',
+          genre: 'Obby',
+          emoji: '🔥',
+          rating: '95%',
+          bgGradient: 'linear-gradient(135deg, #DC2626 0%, #F97316 100%)',
+          desc: 'Hindari lantai lava merah dan capai puncak menara! Hadiah 5–10 R$.'
+        }
+      ];
+
+      const BUILTIN_SHOP_ITEMS = [
+        { id: 'shirt-blue', name: 'Kaos Biru Puzie', type: 'shirt', color: '#2563EB', price: 0, icon: '👕' },
+        { id: 'pants-dark', name: 'Celana Jeans Gelap', type: 'pants', color: '#1E293B', price: 0, icon: '👖' },
+        { id: 'shirt-red', name: 'Jaket Merah Pro', type: 'shirt', color: '#DC2626', price: 5, icon: '🧥' },
+        { id: 'shirt-emerald', name: 'Hoodie Emerald', type: 'shirt', color: '#10B981', price: 8, icon: '🧥' },
+        { id: 'pants-cargo', name: 'Celana Cargo Coklat', type: 'pants', color: '#78350F', price: 5, icon: '👖' },
+        { id: 'hat-crown', name: 'Mahkota Raja Emas', type: 'hat', color: '#FACC15', price: 15, icon: '👑' },
+        { id: 'hat-tophat', name: 'Topi Sulap Hitam', type: 'hat', color: '#1E293B', price: 10, icon: '🎩' },
+        { id: 'hat-halo', name: 'Halo Cahaya', type: 'hat', color: '#38BDF8', price: 12, icon: '😇' }
+      ];
+
+      function readJSON(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch (err) {
+          return fallback;
+        }
+      }
+
+      function writeJSON(key, val) {
+        try {
+          localStorage.setItem(key, JSON.stringify(val));
+        } catch (err) {}
+      }
+
+      // Strict Map Reward Helper: ALWAYS between 5 and 10 Robux
+      function getBoundedMapReward() {
+        return Math.floor(Math.random() * 6) + 5; // 5..10
+      }
+
+      let accountsDB = readJSON(LS_ACCOUNTS_KEY, {});
+      let worldDB = readJSON(LS_WORLD_KEY, {
+        customMaps: [],
+        deletedBuiltinMapIds: [],
+        ugcItems: [
+          { id: 'ugc-1', name: 'Topi Cyber Neon', creator: 'cheapblox', type: 'hat', color: '#A855F7', price: 8, icon: '🧢', isUgc: true }
+        ],
+        promoCodes: [
+          { code: 'PUZIE10', reward: 10 },
+          { code: 'CHEAPBLOX', reward: 10 }
+        ],
+        serverChat: [{ user: 'System', badge: '🤖', text: 'Selamat datang di cheapblox! Semua player nyata terhubung real-time.' }],
+        globalChat: [{ user: 'Info', badge: '🌍', text: 'Gunakan menu Teman untuk tambah teman & gabung map teman!' }]
+      });
+
+      let state = {
+        isLoggedIn: false,
+        username: 'Puzie',
+        coins: 10,
+        skinColor: '#FCD34D',
+        ownedItems: ['shirt-blue', 'pants-dark'],
+        equipped: { shirt: 'shirt-blue', pants: 'pants-dark', hat: null },
+        headless: false,
+        korblox: false,
+        friends: [],
+        incomingRequests: [],
+        redeemedCodes: [],
+        graphics: 'medium'
+      };
+
+      let currentView = 'home';
+      let selectedGameCat = 'all';
+      let gameSearchQuery = '';
+      let selectedShopCat = 'all';
+      let lobbyChatTab = 'server';
+      let inGameChatTab = 'server';
+      let onlinePresenceMap = {};
+      let latestBubbleText = '';
+      let latestBubbleAt = 0;
+      let lastBubbleMsgBySession = {};
+
+      const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cheapblox_v6_realtime') : null;
+
+      function saveAccountState() {
+        if (!state.isLoggedIn || !state.username) return;
+        const key = state.username.toLowerCase();
+        const existing = accountsDB[key] || {};
+        accountsDB[key] = {
+          ...existing,
+          username: state.username,
+          coins: state.coins,
+          skinColor: state.skinColor,
+          ownedItems: state.ownedItems,
+          equipped: state.equipped,
+          headless: state.headless,
+          korblox: state.korblox,
+          friends: state.friends,
+          incomingRequests: state.incomingRequests,
+          redeemedCodes: state.redeemedCodes
+        };
+        writeJSON(LS_ACCOUNTS_KEY, accountsDB);
+        localStorage.setItem(LS_ACTIVE_USER_KEY, state.username);
+      }
+
+      function saveWorldState() {
+        writeJSON(LS_WORLD_KEY, worldDB);
+        if (bc) bc.postMessage({ type: 'world_sync', world: worldDB });
+      }
+
+      // Cross-Tab Real-Time Sync (Multiplayer, Friend Requests, Admin Events, World Updates)
+      if (bc) {
+        bc.onmessage = (ev) => {
+          const d = ev.data || {};
+          if (d.type === 'presence' && d.payload) {
+            onlinePresenceMap[d.payload.sessionId] = d.payload;
+            handleRemotePresenceUpdate();
+          } else if (d.type === 'leave' && d.sessionId) {
+            delete onlinePresenceMap[d.sessionId];
+            handleRemotePresenceUpdate();
+          } else if (d.type === 'world_sync' && d.world) {
+            worldDB = d.world;
+            renderGamesGrid();
+            renderShopGrid();
+            renderPromoCodesPanel();
+            renderLobbyChat();
+            renderInGameChat();
+          } else if (d.type === 'accounts_sync') {
+            accountsDB = readJSON(LS_ACCOUNTS_KEY, accountsDB);
+            if (state.isLoggedIn && accountsDB[state.username.toLowerCase()]) {
+              const mine = accountsDB[state.username.toLowerCase()];
+              state.friends = mine.friends || state.friends;
+              state.incomingRequests = mine.incomingRequests || state.incomingRequests;
+              state.coins = typeof mine.coins === 'number' ? mine.coins : state.coins;
+              syncUI();
+              renderFriendsViews();
+            }
+          } else if (d.type === 'chat_bubble' && d.sessionId && d.text) {
+            if (remotePlayerRigs[d.sessionId]) {
+              attachSpeechBubble(remotePlayerRigs[d.sessionId].rig, d.text);
+            }
+          } else if (d.type === 'admin_event' && d.ev) {
+            applyGlobalAdminEvent(d.ev);
+          } else if (d.type === 'robux_grant' && d.grant) {
+            applyGlobalRobuxGrant(d.grant);
+          }
+        };
+      }
+
+      window.addEventListener('storage', (e) => {
+        if (e.key === LS_WORLD_KEY) {
+          worldDB = readJSON(LS_WORLD_KEY, worldDB);
+          renderGamesGrid();
+          renderShopGrid();
+          renderPromoCodesPanel();
+          renderLobbyChat();
+          renderInGameChat();
+        } else if (e.key === LS_ACCOUNTS_KEY) {
+          accountsDB = readJSON(LS_ACCOUNTS_KEY, accountsDB);
+          if (state.isLoggedIn && accountsDB[state.username.toLowerCase()]) {
+            const mine = accountsDB[state.username.toLowerCase()];
+            state.friends = mine.friends || state.friends;
+            state.incomingRequests = mine.incomingRequests || state.incomingRequests;
+            state.coins = typeof mine.coins === 'number' ? mine.coins : state.coins;
+            syncUI();
+            renderFriendsViews();
+          }
+        }
+      });
+
+      function isOwner() {
+        return (state.username || '').trim().toLowerCase() === OWNER_USN.toLowerCase();
+      }
+
+      function formatR(val) {
+        return `${Number(val || 0).toLocaleString('id-ID')} R$`;
+      }
+
+      window.showToast = function (msg) {
+        const box = document.getElementById('toast-container');
+        if (!box) return;
+        const el = document.createElement('div');
+        el.className = 'px-4 py-2.5 rounded-2xl bg-slate-900/95 text-white border border-white/15 text-xs font-extrabold shadow-2xl text-center transition-opacity duration-300';
+        el.textContent = msg;
+        box.appendChild(el);
+        setTimeout(() => {
+          el.style.opacity = '0';
+          setTimeout(() => el.remove(), 300);
+        }, 2500);
+      };
+
+      function playTone(freq, dur, type = 'sine') {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + dur);
+        } catch (err) {}
+      }
+
+      // ==================== 1. AUTHENTICATION, PASSWORD EYE TOGGLE & PERSISTENT LOGIN ====================
+      window.togglePasswordVisibility = function (inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (!inp) return;
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        if (btn) btn.textContent = show ? '🙈' : '👁️';
+      };
+
+      window.switchAuthTab = function (tab) {
+        const isReg = tab === 'register';
+        const fReg = document.getElementById('auth-form-register');
+        const fLog = document.getElementById('auth-form-login');
+        const tReg = document.getElementById('auth-tab-register');
+        const tLog = document.getElementById('auth-tab-login');
+        if (fReg) fReg.classList.toggle('hidden', !isReg);
+        if (fLog) fLog.classList.toggle('hidden', isReg);
+        if (tReg) tReg.className = `py-2 rounded-xl text-xs font-extrabold transition ${isReg ? 'bg-white text-slate-950' : 'text-slate-400 hover:text-white'}`;
+        if (tLog) tLog.className = `py-2 rounded-xl text-xs font-extrabold transition ${!isReg ? 'bg-white text-slate-950' : 'text-slate-400 hover:text-white'}`;
+      };
+
+      window.handleAuthRegister = function (e) {
+        e.preventDefault();
+        const uInp = document.getElementById('reg-username');
+        const pInp = document.getElementById('reg-password');
+        const usn = (uInp ? uInp.value : '').trim();
+        const pwd = pInp ? pInp.value : '';
+        if (usn.length < 3 || pwd.length < 4) {
+          window.showToast('⚠️ Username min 3 huruf & sandi min 4 karakter!');
+          return;
+        }
+        const key = usn.toLowerCase();
+        if (key === OWNER_USN.toLowerCase()) {
+          window.showToast('⚠️ Username Owner sudah terdaftar. Silakan masuk di tab Masuk Akun.');
+          window.switchAuthTab('login');
+          return;
+        }
+        if (accountsDB[key]) {
+          window.showToast('⚠️ Username sudah dipakai! Gunakan tab Masuk Akun atau pilih nama lain.');
+          return;
+        }
+
+        // New Account starts with strictly 10 Robux
+        accountsDB[key] = {
+          username: usn,
+          password: pwd,
+          coins: 10,
+          skinColor: '#FCD34D',
+          ownedItems: ['shirt-blue', 'pants-dark'],
+          equipped: { shirt: 'shirt-blue', pants: 'pants-dark', hat: null },
+          headless: false,
+          korblox: false,
+          friends: [],
+          incomingRequests: [],
+          redeemedCodes: []
+        };
+        writeJSON(LS_ACCOUNTS_KEY, accountsDB);
+        loadUserSession(key);
+        window.showToast(`🎉 Akun @${usn} dibuat! Modal awal 10 R$.`);
+      };
+
+      window.handleAuthLogin = function (e) {
+        e.preventDefault();
+        const uInp = document.getElementById('login-username');
+        const pInp = document.getElementById('login-password');
+        const usn = (uInp ? uInp.value : '').trim();
+        const pwd = pInp ? pInp.value : '';
+        if (!usn || !pwd) return;
+
+        const key = usn.toLowerCase();
+
+        // Owner authentication (Owner also starts with strictly 10 Robux on first initialization)
+        if (key === OWNER_USN.toLowerCase()) {
+          if (pwd !== OWNER_PWD) {
+            window.showToast('❌ Username atau kata sandi Owner salah!');
+            return;
+          }
+          if (!accountsDB[key]) {
+            accountsDB[key] = {
+              username: OWNER_USN,
+              password: OWNER_PWD,
+              coins: 10,
+              skinColor: '#FCD34D',
+              ownedItems: ['shirt-blue', 'pants-dark', 'hat-crown'],
+              equipped: { shirt: 'shirt-blue', pants: 'pants-dark', hat: 'hat-crown' },
+              headless: false,
+              korblox: false,
+              friends: [],
+              incomingRequests: [],
+              redeemedCodes: []
+            };
+            writeJSON(LS_ACCOUNTS_KEY, accountsDB);
+          }
+          loadUserSession(key);
+          window.showToast('👑 Login Owner berhasil!');
+          return;
+        }
+
+        const acc = accountsDB[key];
+        if (!acc || acc.password !== pwd) {
+          window.showToast('❌ Akun tidak ditemukan atau kata sandi salah!');
+          return;
+        }
+
+        loadUserSession(key);
+        window.showToast(`✅ Selamat datang kembali, @${acc.username}!`);
+      };
+
+      function loadUserSession(accountKey) {
+        const acc = accountsDB[accountKey];
+        if (!acc) return;
+        state = {
+          isLoggedIn: true,
+          username: acc.username,
+          coins: typeof acc.coins === 'number' ? acc.coins : 10,
+          skinColor: acc.skinColor || '#FCD34D',
+          ownedItems: Array.isArray(acc.ownedItems) ? acc.ownedItems : ['shirt-blue', 'pants-dark'],
+          equipped: acc.equipped || { shirt: 'shirt-blue', pants: 'pants-dark', hat: null },
+          headless: !!acc.headless,
+          korblox: !!acc.korblox,
+          friends: Array.isArray(acc.friends) ? acc.friends : [],
+          incomingRequests: Array.isArray(acc.incomingRequests) ? acc.incomingRequests : [],
+          redeemedCodes: Array.isArray(acc.redeemedCodes) ? acc.redeemedCodes : [],
+          graphics: state.graphics || 'medium'
+        };
+        localStorage.setItem(LS_ACTIVE_USER_KEY, acc.username);
+        const authEl = document.getElementById('auth-overlay');
+        if (authEl) authEl.classList.add('hidden');
+        broadcastPresence(true);
+        syncUI();
+        window.navigate('home');
+      }
+
+      window.logoutAccount = function () {
+        removeMyPresence();
+        state.isLoggedIn = false;
+        localStorage.removeItem(LS_ACTIVE_USER_KEY);
+        window.toggleSidebar(false);
+        const lU = document.getElementById('login-username');
+        const lP = document.getElementById('login-password');
+        if (lU) lU.value = '';
+        if (lP) lP.value = '';
+        const authEl = document.getElementById('auth-overlay');
+        if (authEl) authEl.classList.remove('hidden');
+        window.switchAuthTab('login');
+      };
+
+      window.saveSettingsUsername = function () {
+        const inp = document.getElementById('settings-username-input');
+        const nextName = (inp ? inp.value : '').trim();
+        if (nextName.length < 3) {
+          window.showToast('⚠️ Nama minimal 3 karakter!');
+          return;
+        }
+        const oldKey = state.username.toLowerCase();
+        const newKey = nextName.toLowerCase();
+        if (newKey === OWNER_USN.toLowerCase() && !isOwner()) {
+          window.showToast('🔒 Nama Owner dilindungi!');
+          return;
+        }
+        if (oldKey !== newKey && accountsDB[newKey]) {
+          window.showToast('⚠️ Username sudah dipakai akun lain!');
+          return;
+        }
+        const oldRec = accountsDB[oldKey] || {};
+        delete accountsDB[oldKey];
+        state.username = nextName;
+        accountsDB[newKey] = { ...oldRec, username: nextName };
+        saveAccountState();
+        broadcastPresence(true);
+        syncUI();
+        if (currentGame && playerRig) rebuildInGamePlayerRig();
+        window.showToast(`✅ Nama diperbarui menjadi @${nextName}!`);
+      };
+
+      window.setAppTheme = function (mode) {
+        document.documentElement.classList.toggle('dark', mode === 'dark');
+        window.showToast(`🎨 Tema ${mode === 'dark' ? 'Gelap' : 'Terang'} aktif!`);
+      };
+
+      function syncUI() {
+        const ownerFlag = isOwner();
+        const rStr = formatR(state.coins);
+
+        const hRobux = document.getElementById('header-robux');
+        const hudRobux = document.getElementById('hud-robux-count');
+        const hUser = document.getElementById('home-username');
+        const sUser = document.getElementById('sidebar-username');
+        const sRole = document.getElementById('sidebar-role-badge');
+        const hCrown = document.getElementById('home-owner-crown');
+        const adminBtn = document.getElementById('btn-admin-abyus');
+        const codeCreator = document.getElementById('owner-code-creator-panel');
+
+        if (hRobux) hRobux.textContent = rStr;
+        if (hudRobux) hudRobux.textContent = rStr;
+        if (hUser) hUser.textContent = state.username;
+        if (sUser) sUser.textContent = state.username;
+        if (sRole) sRole.innerHTML = ownerFlag ? `<span class="text-amber-400">👑 OWNER</span> • @${state.username}` : `Pemain • @${state.username}`;
+        if (hCrown) hCrown.classList.toggle('hidden', !ownerFlag);
+        if (adminBtn) adminBtn.classList.toggle('hidden', !ownerFlag);
+        if (codeCreator) codeCreator.classList.toggle('hidden', !ownerFlag);
+
+        const bHead = document.getElementById('btn-equip-headless');
+        const bKorb = document.getElementById('btn-equip-korblox');
+        if (bHead) bHead.textContent = `🎃 Headless: ${state.headless ? 'ON' : 'OFF'}`;
+        if (bKorb) bKorb.textContent = `🦴 Korblox: ${state.korblox ? 'ON' : 'OFF'}`;
+
+        const activePlayers = getActiveOnlinePlayers();
+        const onlineCount = document.getElementById('online-server-count');
+        if (onlineCount) onlineCount.textContent = `${activePlayers.length} Online`;
+
+        const reqCount = state.incomingRequests.length;
+        const sbBadge = document.getElementById('sidebar-req-badge');
+        const hdDot = document.getElementById('header-req-dot');
+        const homePill = document.getElementById('home-friend-req-pill');
+        if (sbBadge) { sbBadge.textContent = reqCount; sbBadge.classList.toggle('hidden', reqCount === 0); }
+        if (hdDot) hdDot.classList.toggle('hidden', reqCount === 0);
+        if (homePill) { homePill.textContent = `${reqCount} Permintaan`; homePill.classList.toggle('hidden', reqCount === 0); }
+      }
+
+      // ==================== 2. REAL-TIME PRESENCE (NO AI BOTS) ====================
+      let lastPresenceSentAt = 0;
+
+      function getActiveOnlinePlayers() {
+        const now = Date.now();
+        const list = Object.values(onlinePresenceMap).filter(p => p && (now - (p.updatedAt || 0) < 12000));
+        if (state.isLoggedIn && !list.some(p => p.sessionId === SESSION_ID)) {
+          list.unshift(buildMyPresencePayload());
+        }
+        return list;
+      }
+
+      function buildMyPresencePayload() {
+        return {
+          sessionId: SESSION_ID,
+          username: state.username,
+          isOwner: isOwner(),
+          mapId: currentGame ? currentGame.id : '',
+          mapTitle: currentGame ? currentGame.title : 'Di Beranda',
+          x: playerPos ? Number(playerPos.x.toFixed(2)) : 0,
+          y: playerPos ? Number(playerPos.y.toFixed(2)) : 1.5,
+          z: playerPos ? Number(playerPos.z.toFixed(2)) : 0,
+          yaw: playerRig ? Number(playerRig.group.rotation.y.toFixed(2)) : 0,
+          moving: currentMovingState,
+          grounded: grounded,
+          emote: currentEmote || '',
+          skinColor: state.skinColor,
+          equipped: state.equipped,
+          headless: state.headless,
+          korblox: state.korblox,
+          bubbleText: (Date.now() - latestBubbleAt < 5500) ? latestBubbleText : '',
+          bubbleAt: latestBubbleAt,
+          updatedAt: Date.now()
+        };
+      }
+
+      function broadcastPresence(force = false) {
+        if (!state.isLoggedIn) return;
+        const now = Date.now();
+        if (!force && now - lastPresenceSentAt < 180) return;
+        lastPresenceSentAt = now;
+        const payload = buildMyPresencePayload();
+        onlinePresenceMap[SESSION_ID] = payload;
+        if (bc) bc.postMessage({ type: 'presence', payload });
+      }
+
+      function removeMyPresence() {
+        delete onlinePresenceMap[SESSION_ID];
+        if (bc) bc.postMessage({ type: 'leave', sessionId: SESSION_ID });
+      }
+
+      setInterval(() => {
+        if (state.isLoggedIn) broadcastPresence(true);
+      }, 2000);
+
+      window.addEventListener('beforeunload', () => removeMyPresence());
+
+      // ==================== 3. FRIEND REQUESTS, ACCEPT/DECLINE & JOIN FRIEND'S MAP ====================
+      window.quickAddFriendFromHome = function () {
+        const inp = document.getElementById('home-quick-friend-input');
+        const target = (inp ? inp.value : '').trim().replace(/^@/, '');
+        if (!target) return;
+        window.sendFriendRequestTo(target);
+        if (inp) inp.value = '';
+      };
+
+      window.handleSendFriendRequestForm = function (e) {
+        e.preventDefault();
+        const inp = document.getElementById('friends-search-username');
+        const target = (inp ? inp.value : '').trim().replace(/^@/, '');
+        if (!target) return;
+        window.sendFriendRequestTo(target);
+        if (inp) inp.value = '';
+      };
+
+      window.sendFriendRequestTo = function (targetUsername) {
+        const clean = (targetUsername || '').trim().replace(/^@/, '');
+        if (!clean) return;
+        if (clean.toLowerCase() === state.username.toLowerCase()) {
+          window.showToast('⚠️ Tidak bisa menambahkan diri sendiri!');
+          return;
+        }
+        if (state.friends.some(f => f.toLowerCase() === clean.toLowerCase())) {
+          window.showToast(`ℹ️ @${clean} sudah ada di daftar temanmu!`);
+          return;
+        }
+        const targetAcc = accountsDB[clean.toLowerCase()];
+        if (!targetAcc) {
+          window.showToast(`❌ Akun @${clean} tidak ditemukan! Pastikan temanmu sudah daftar akun.`);
+          return;
+        }
+        targetAcc.incomingRequests = Array.isArray(targetAcc.incomingRequests) ? targetAcc.incomingRequests : [];
+        if (!targetAcc.incomingRequests.some(f => f.toLowerCase() === state.username.toLowerCase())) {
+          targetAcc.incomingRequests.push(state.username);
+        }
+        accountsDB[clean.toLowerCase()] = targetAcc;
+        writeJSON(LS_ACCOUNTS_KEY, accountsDB);
+        if (bc) bc.postMessage({ type: 'accounts_sync' });
+        window.showToast(`📨 Permintaan pertemanan dikirim ke @${targetAcc.username}!`);
+      };
+
+      window.acceptFriendRequest = function (fromUser) {
+        state.incomingRequests = state.incomingRequests.filter(f => f.toLowerCase() !== fromUser.toLowerCase());
+        if (!state.friends.some(f => f.toLowerCase() === fromUser.toLowerCase())) {
+          state.friends.push(fromUser);
+        }
+        const senderAcc = accountsDB[fromUser.toLowerCase()];
+        if (senderAcc) {
+          senderAcc.friends = Array.isArray(senderAcc.friends) ? senderAcc.friends : [];
+          if (!senderAcc.friends.some(f => f.toLowerCase() === state.username.toLowerCase())) {
+            senderAcc.friends.push(state.username);
+          }
+          accountsDB[fromUser.toLowerCase()] = senderAcc;
+        }
+        saveAccountState();
+        if (bc) bc.postMessage({ type: 'accounts_sync' });
+        syncUI();
+        renderFriendsViews();
+        window.showToast(`🤝 Kamu dan @${fromUser} sekarang berteman!`);
+      };
+
+      window.declineFriendRequest = function (fromUser) {
+        state.incomingRequests = state.incomingRequests.filter(f => f.toLowerCase() !== fromUser.toLowerCase());
+        saveAccountState();
+        if (bc) bc.postMessage({ type: 'accounts_sync' });
+        syncUI();
+        renderFriendsViews();
+        window.showToast(`❌ Permintaan teman dari @${fromUser} ditolak.`);
+      };
+
+      window.joinFriendMap = function (friendUsername) {
+        const active = getActiveOnlinePlayers().find(p => p.username.toLowerCase() === friendUsername.toLowerCase());
+        if (!active || !active.mapId) {
+          window.showToast(`ℹ️ @${friendUsername} sedang berada di Beranda (belum masuk map).`);
+          return;
+        }
+        window.toggleInGamePlayersModal(false);
+        window.showToast(`🚀 Ikut masuk ke map @${friendUsername} (${active.mapTitle})!`);
+        window.startGameById(active.mapId, { x: active.x, y: active.y, z: active.z });
+      };
+
+      function renderFriendsViews() {
+        const activePlayers = getActiveOnlinePlayers();
+
+        // Incoming Friend Request Banner on Home
+        const homeInc = document.getElementById('home-incoming-strip');
+        if (homeInc) {
+          homeInc.innerHTML = state.incomingRequests.map(fromU => `
+            <div class="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-between gap-2 text-xs">
+              <span class="font-black text-amber-300">📩 @${fromU} mengirim permintaan teman</span>
+              <div class="flex gap-1.5">
+                <button type="button" onclick="window.acceptFriendRequest('${fromU}')" class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-950 font-black">Terima</button>
+                <button type="button" onclick="window.declineFriendRequest('${fromU}')" class="px-3 py-1 rounded-xl bg-red-500/20 text-red-400 font-black">Tolak</button>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Home Friends & Online Players Strip
+        const strip = document.getElementById('home-friends-strip');
+        if (strip) {
+          const cards = [];
+          state.friends.forEach(fname => {
+            const on = activePlayers.find(p => p.username.toLowerCase() === fname.toLowerCase());
+            cards.push(`
+              <div class="shrink-0 p-2.5 rounded-2xl bg-slate-100 dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 flex items-center gap-2.5 min-w-[215px]">
+                <div class="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-black relative">
+                  🧑
+                  <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${on ? 'bg-emerald-400' : 'bg-slate-500'} border-2 border-[#0F1115]"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-black truncate">@${fname}</div>
+                  <div class="text-[10px] ${on && on.mapId ? 'text-emerald-400 font-bold' : 'text-slate-400'} truncate">
+                    ${on ? (on.mapId ? `🟢 ${on.mapTitle}` : '🔵 Di Beranda') : '⚫ Offline'}
+                  </div>
+                </div>
+                ${(on && on.mapId) ? `<button type="button" onclick="window.joinFriendMap('${fname}')" class="px-2.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px]">🚀 Gabung</button>` : ''}
+              </div>
+            `);
+          });
+
+          activePlayers.forEach(p => {
+            if (p.sessionId === SESSION_ID) return;
+            if (state.friends.some(f => f.toLowerCase() === p.username.toLowerCase())) return;
+            cards.push(`
+              <div class="shrink-0 p-2.5 rounded-2xl bg-slate-100 dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 flex items-center gap-2.5 min-w-[215px]">
+                <div class="w-9 h-9 rounded-xl bg-purple-600/20 text-purple-300 flex items-center justify-center font-black">🌐</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-black truncate">${p.isOwner ? '👑 ' : ''}@${p.username}</div>
+                  <div class="text-[10px] text-emerald-400 truncate">${p.mapId ? `Main: ${p.mapTitle}` : 'Online di Beranda'}</div>
+                </div>
+                <button type="button" onclick="window.sendFriendRequestTo('${p.username}')" class="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px]">+ Teman</button>
+              </div>
+            `);
+          });
+
+          strip.innerHTML = cards.length > 0
+            ? cards.join('')
+            : `<div class="text-xs text-slate-400 py-2">Belum ada teman atau player lain online. Buka tab baru &amp; buat akun lain untuk mabar bersama!</div>`;
+        }
+
+        // Full Friends Page
+        const incCard = document.getElementById('incoming-requests-card');
+        const incList = document.getElementById('incoming-requests-list');
+        if (incCard && incList) {
+          incCard.classList.toggle('hidden', state.incomingRequests.length === 0);
+          incList.innerHTML = state.incomingRequests.map(fromU => `
+            <div class="p-3 rounded-2xl bg-[#161920] border border-white/10 flex items-center justify-between gap-2">
+              <div class="text-xs font-black">👤 @${fromU} ingin berteman denganmu</div>
+              <div class="flex gap-1.5">
+                <button type="button" onclick="window.acceptFriendRequest('${fromU}')" class="px-3.5 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">Terima</button>
+                <button type="button" onclick="window.declineFriendRequest('${fromU}')" class="px-3.5 py-1.5 rounded-xl bg-red-500/20 text-red-400 font-black text-xs">Tolak</button>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        const fFull = document.getElementById('friends-full-list');
+        if (fFull) {
+          fFull.innerHTML = state.friends.length === 0
+            ? `<div class="text-xs text-slate-400">Daftar teman masih kosong.</div>`
+            : state.friends.map(fname => {
+                const on = activePlayers.find(p => p.username.toLowerCase() === fname.toLowerCase());
+                return `
+                  <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0F1115] border border-white/5 flex items-center justify-between gap-2">
+                    <div>
+                      <div class="text-xs font-black">@${fname}</div>
+                      <div class="text-[11px] ${on ? 'text-emerald-400 font-bold' : 'text-slate-400'}">${on ? (on.mapId ? `🟢 Bermain ${on.mapTitle}` : '🔵 Online di Beranda') : '⚫ Offline'}</div>
+                    </div>
+                    ${(on && on.mapId) ? `<button type="button" onclick="window.joinFriendMap('${fname}')" class="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs">🚀 Gabung Map</button>` : ''}
+                  </div>
+                `;
+              }).join('');
+        }
+
+        const allOnEl = document.getElementById('all-online-players-list');
+        if (allOnEl) {
+          const others = activePlayers.filter(p => p.sessionId !== SESSION_ID);
+          allOnEl.innerHTML = others.length === 0
+            ? `<div class="text-xs text-slate-400">Belum ada player lain online saat ini.</div>`
+            : others.map(p => {
+                const isFriend = state.friends.some(f => f.toLowerCase() === p.username.toLowerCase());
+                return `
+                  <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0F1115] border border-white/5 flex items-center justify-between gap-2">
+                    <div>
+                      <div class="text-xs font-black">${p.isOwner ? '👑 ' : ''}@${p.username}</div>
+                      <div class="text-[11px] text-emerald-400">${p.mapId ? `Bermain ${p.mapTitle}` : 'Di Beranda'}</div>
+                    </div>
+                    <div class="flex gap-1.5">
+                      ${!isFriend ? `<button type="button" onclick="window.sendFriendRequestTo('${p.username}')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white font-black text-xs">+ Tambah Teman</button>` : `<span class="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 text-[11px] font-black">✓ Teman</span>`}
+                      ${p.mapId ? `<button type="button" onclick="window.joinFriendMap('${p.username}')" class="px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">🚀 Gabung</button>` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('');
+        }
+      }
+
+      window.toggleInGamePlayersModal = function (force) {
+        const m = document.getElementById('ingame-players-modal');
+        if (!m) return;
+        m.classList.toggle('hidden', typeof force === 'boolean' ? !force : !m.classList.contains('hidden'));
+        renderInGamePlayersModal();
+      };
+
+      function renderInGamePlayersModal() {
+        const active = getActiveOnlinePlayers();
+        const sameMap = currentGame ? active.filter(p => p.mapId === currentGame.id) : [];
+        const cntEl = document.getElementById('hud-server-players-count');
+        if (cntEl) cntEl.textContent = Math.max(1, sameMap.length);
+
+        const listEl = document.getElementById('ingame-same-map-list');
+        if (listEl) {
+          listEl.innerHTML = sameMap.map(p => {
+            const isMe = p.sessionId === SESSION_ID;
+            const isFriend = state.friends.some(f => f.toLowerCase() === p.username.toLowerCase());
+            return `
+              <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                <span class="font-black truncate">${p.isOwner ? '👑 ' : ''}@${p.username} ${isMe ? '(Kamu)' : ''}</span>
+                ${isMe ? '' : (isFriend
+                  ? `<span class="text-[10px] text-emerald-400 font-black">✓ Teman</span>`
+                  : `<button type="button" onclick="window.sendFriendRequestTo('${p.username}')" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px]">+ Tambah Teman</button>`)}
+              </div>
+            `;
+          }).join('');
+        }
+
+        const fJoinEl = document.getElementById('ingame-friends-join-list');
+        if (fJoinEl) {
+          const onlineFriends = state.friends.map(fn => active.find(p => p.username.toLowerCase() === fn.toLowerCase())).filter(Boolean);
+          fJoinEl.innerHTML = onlineFriends.length === 0
+            ? `<div class="text-[11px] text-slate-400">Tidak ada teman online lainnya.</div>`
+            : onlineFriends.map(f => `
+                <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                  <div class="min-w-0">
+                    <div class="font-black truncate">@${f.username}</div>
+                    <div class="text-[10px] text-emerald-400 truncate">${f.mapTitle}</div>
+                  </div>
+                  ${f.mapId ? `<button type="button" onclick="window.joinFriendMap('${f.username}')" class="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-black text-[10px]">🚀 Gabung Map</button>` : ''}
+                </div>
+              `).join('');
+        }
+      }
+
+      // ==================== 4. NAVIGATION & MAPS CATALOG ====================
+      window.toggleSidebar = function (open) {
+        const drawer = document.getElementById('sidebar-drawer');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (drawer) drawer.classList.toggle('-translate-x-full', !open);
+        if (backdrop) backdrop.classList.toggle('hidden', !open);
+      };
+
+      window.navigate = function (view) {
+        currentView = view;
+        ['home', 'friends', 'avatar', 'studio', 'codes', 'chat', 'settings'].forEach(v => {
+          const sec = document.getElementById(`view-${v}`);
+          if (sec) sec.classList.toggle('hidden', v !== view);
+        });
+        if (view === 'home') { renderGamesGrid(); renderFriendsViews(); }
+        if (view === 'friends') renderFriendsViews();
+        if (view === 'avatar') { renderShopGrid(); initAvatarStage(); }
+        if (view === 'studio') window.switchStudioTab('map');
+        if (view === 'codes') renderPromoCodesPanel();
+        if (view === 'chat') renderLobbyChat();
+        if (view === 'settings') {
+          const inp = document.getElementById('settings-username-input');
+          if (inp) inp.value = state.username;
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      function getAvailableMaps() {
+        const activeBuiltins = BUILTIN_MAPS.filter(m => !(worldDB.deletedBuiltinMapIds || []).includes(m.id));
+        return [...(worldDB.customMaps || []), ...activeBuiltins];
+      }
+
+      window.filterGames = function (cat) {
+        selectedGameCat = cat;
+        document.querySelectorAll('.game-cat-btn').forEach(btn => {
+          btn.className = `game-cat-btn px-3.5 py-1.5 rounded-full text-xs font-extrabold ${btn.dataset.cat === cat ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-[#191C24]'}`;
+        });
+        renderGamesGrid();
+      };
+
+      window.handleSearchGames = function (q) {
+        gameSearchQuery = (q || '').trim().toLowerCase();
+        renderGamesGrid();
+      };
+
+      function renderGamesGrid() {
+        const grid = document.getElementById('games-grid');
+        if (!grid) return;
+        let list = getAvailableMaps();
+        if (selectedGameCat !== 'all') list = list.filter(g => g.genre === selectedGameCat);
+        if (gameSearchQuery) list = list.filter(g => g.title.toLowerCase().includes(gameSearchQuery) || g.creator.toLowerCase().includes(gameSearchQuery));
+
+        const activePlayers = getActiveOnlinePlayers();
+        const ownerFlag = isOwner();
+
+        grid.innerHTML = list.map(game => {
+          const playingCount = activePlayers.filter(p => p.mapId === game.id).length;
+          return `
+            <div class="rounded-3xl overflow-hidden bg-white dark:bg-[#161920] border border-slate-200 dark:border-white/10 shadow-md flex flex-col justify-between">
+              <div onclick="window.startGameById('${game.id}')" class="cursor-pointer group">
+                <div style="background: ${game.bgGradient};" class="h-32 flex items-center justify-center relative">
+                  <span class="text-5xl group-hover:scale-110 transition-transform drop-shadow">${game.emoji}</span>
+                  <span class="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-extrabold">${game.genre}</span>
+                  <span class="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/65 text-emerald-300 text-[10px] font-black">🟢 ${playingCount} Bermain</span>
+                </div>
+                <div class="p-3.5 space-y-1">
+                  <h3 class="font-black text-sm truncate">${game.title}</h3>
+                  <p class="text-[11px] text-slate-400 line-clamp-2">${game.desc}</p>
+                  <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                    <span>👍 ${game.rating} • Hadiah 5–10 R$</span>
+                    <span>Oleh @${game.creator}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="px-3.5 pb-3.5 flex items-center gap-2">
+                <button type="button" onclick="window.startGameById('${game.id}')" class="flex-1 py-2.5 rounded-xl bg-[#00B06F] hover:bg-[#009A60] text-white font-black text-xs shadow">
+                  ▶ Main
+                </button>
+                ${ownerFlag ? `<button type="button" onclick="window.ownerDeleteMap('${game.id}')" class="px-3 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 text-xs font-black">🗑️ Hapus</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.ownerDeleteMap = function (mapId) {
+        if (!isOwner()) return;
+        const cIdx = (worldDB.customMaps || []).findIndex(m => m.id === mapId);
+        if (cIdx !== -1) {
+          worldDB.customMaps.splice(cIdx, 1);
+        } else {
+          worldDB.deletedBuiltinMapIds = worldDB.deletedBuiltinMapIds || [];
+          if (!worldDB.deletedBuiltinMapIds.includes(mapId)) worldDB.deletedBuiltinMapIds.push(mapId);
+        }
+        saveWorldState();
+        renderGamesGrid();
+        window.showToast('🗑️ Map dihapus oleh Owner!');
+      };
+
+      // ==================== 5. 3D AVATAR RIG ("Puzie") & SHOP ====================
+      let avScene, avCam, avRenderer, avRig, avAnimId, avYaw = 0.5;
+
+      function getAllShopItems() {
+        return [...(worldDB.ugcItems || []), ...BUILTIN_SHOP_ITEMS];
+      }
+
+      window.toggleHeadless = function (inGame = false) {
+        if (!isOwner() && state.coins < 25 && !state.headless) {
+          window.showToast('⚠️ Butuh 25 R$ atau akun Owner untuk Headless Horseman!');
+          return;
+        }
+        if (!isOwner() && !state.headless) state.coins -= 25;
+        state.headless = !state.headless;
+        saveAccountState();
+        syncUI();
+        rebuildAvatarStage();
+        if (inGame && currentGame) rebuildInGamePlayerRig();
+        broadcastPresence(true);
+        window.showToast(`🎃 Headless Horseman: ${state.headless ? 'ON' : 'OFF'}`);
+      };
+
+      window.toggleKorblox = function (inGame = false) {
+        if (!isOwner() && state.coins < 25 && !state.korblox) {
+          window.showToast('⚠️ Butuh 25 R$ atau akun Owner untuk Korblox Leg!');
+          return;
+        }
+        if (!isOwner() && !state.korblox) state.coins -= 25;
+        state.korblox = !state.korblox;
+        saveAccountState();
+        syncUI();
+        rebuildAvatarStage();
+        if (inGame && currentGame) rebuildInGamePlayerRig();
+        broadcastPresence(true);
+        window.showToast(`🦴 Korblox Leg: ${state.korblox ? 'ON' : 'OFF'}`);
+      };
+
+      window.changeSkinColor = function (hex) {
+        state.skinColor = hex;
+        saveAccountState();
+        rebuildAvatarStage();
+        broadcastPresence(true);
+      };
+
+      function createAvatarRig(opts = {}) {
+        const eq = opts.equipped || state.equipped;
+        const skin = opts.skinColor || state.skinColor;
+        const headless = typeof opts.headless === 'boolean' ? opts.headless : state.headless;
+        const korblox = typeof opts.korblox === 'boolean' ? opts.korblox : state.korblox;
+        const items = getAllShopItems();
+        const shirtItem = items.find(i => i.id === eq.shirt);
+        const pantsItem = items.find(i => i.id === eq.pants);
+        const hatItem = items.find(i => i.id === eq.hat);
+
+        const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.5 });
+        const shirtMat = new THREE.MeshStandardMaterial({ color: shirtItem ? shirtItem.color : '#2563EB', roughness: 0.5 });
+        const pantsMat = new THREE.MeshStandardMaterial({ color: pantsItem ? pantsItem.color : '#1E293B', roughness: 0.6 });
+
+        const root = new THREE.Group();
+        const bodyGroup = new THREE.Group();
+        root.add(bodyGroup);
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.98, 1.1, 0.48), shirtMat);
+        torso.position.y = 1.67;
+        torso.castShadow = true;
+        bodyGroup.add(torso);
+
+        const headPivot = new THREE.Group();
+        headPivot.position.set(0, 2.24, 0);
+        bodyGroup.add(headPivot);
+
+        if (!headless) {
+          const head = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.74, 0.74), skinMat);
+          head.position.y = 0.39;
+          head.castShadow = true;
+          headPivot.add(head);
+
+          const faceMat = new THREE.MeshBasicMaterial({ color: 0x0F172A });
+          const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.04), faceMat);
+          eyeL.position.set(-0.16, 0.45, 0.375);
+          const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.04), faceMat);
+          eyeR.position.set(0.16, 0.45, 0.375);
+          const smile = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.04), faceMat);
+          smile.position.set(0, 0.24, 0.375);
+          headPivot.add(eyeL, eyeR, smile);
+        } else {
+          const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 0.14, 12), skinMat);
+          stump.position.y = 0.07;
+          headPivot.add(stump);
+        }
+
+        if (hatItem) {
+          const hatMat = new THREE.MeshStandardMaterial({ color: hatItem.color || '#FACC15', metalness: 0.3, roughness: 0.3 });
+          const hatMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.38, 0.28, 12), hatMat);
+          hatMesh.position.y = headless ? 0.32 : 0.88;
+          headPivot.add(hatMesh);
+        }
+
+        const leftArmPivot = new THREE.Group();
+        leftArmPivot.position.set(-0.71, 2.14, 0);
+        const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.36, 1.0, 0.38), skinMat);
+        leftArm.position.y = -0.46;
+        leftArm.castShadow = true;
+        leftArmPivot.add(leftArm);
+
+        const rightArmPivot = new THREE.Group();
+        rightArmPivot.position.set(0.71, 2.14, 0);
+        const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.36, 1.0, 0.38), skinMat);
+        rightArm.position.y = -0.46;
+        rightArm.castShadow = true;
+        rightArmPivot.add(rightArm);
+
+        bodyGroup.add(leftArmPivot, rightArmPivot);
+
+        const leftLegPivot = new THREE.Group();
+        leftLegPivot.position.set(-0.25, 1.12, 0);
+        const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.12, 0.44), pantsMat);
+        leftLeg.position.y = -0.56;
+        leftLeg.castShadow = true;
+        leftLegPivot.add(leftLeg);
+
+        const rightLegPivot = new THREE.Group();
+        rightLegPivot.position.set(0.25, 1.12, 0);
+        if (korblox) {
+          const kMat = new THREE.MeshStandardMaterial({ color: 0x1E3A8A, metalness: 0.5, roughness: 0.25 });
+          const kUpper = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.54, 6), kMat);
+          kUpper.position.y = -0.27;
+          kUpper.rotation.x = Math.PI;
+          const kSpike = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.62, 5), kMat);
+          kSpike.position.y = -0.78;
+          kSpike.rotation.x = Math.PI;
+          rightLegPivot.add(kUpper, kSpike);
+        } else {
+          const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.12, 0.44), pantsMat);
+          rightLeg.position.y = -0.56;
+          rightLeg.castShadow = true;
+          rightLegPivot.add(rightLeg);
+        }
+
+        root.add(leftLegPivot, rightLegPivot);
+        return { group: root, bodyGroup, headPivot, leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot };
+      }
+
+      function updateAvatarAnimation(rig, stateInfo) {
+        if (!rig) return;
+        const t = stateInfo.time || 0;
+        rig.bodyGroup.position.y = 0;
+        rig.bodyGroup.rotation.z = 0;
+        rig.leftArmPivot.rotation.z = 0;
+        rig.rightArmPivot.rotation.z = 0;
+        rig.leftLegPivot.rotation.x = 0;
+        rig.rightLegPivot.rotation.x = 0;
+
+        if (!stateInfo.grounded) {
+          rig.leftArmPivot.rotation.x = -2.3;
+          rig.rightArmPivot.rotation.x = -2.3;
+          rig.leftLegPivot.rotation.x = 0.35;
+          rig.rightLegPivot.rotation.x = -0.35;
+          return;
+        }
+        if (stateInfo.moving) {
+          const spd = stateInfo.fast ? 15 : 10;
+          const swing = Math.sin(t * spd);
+          rig.leftLegPivot.rotation.x = swing * 0.68;
+          rig.rightLegPivot.rotation.x = -swing * 0.68;
+          rig.leftArmPivot.rotation.x = -swing * 0.58;
+          rig.rightArmPivot.rotation.x = swing * 0.58;
+          rig.bodyGroup.position.y = Math.abs(Math.cos(t * spd)) * 0.05;
+          rig.headPivot.rotation.y = Math.sin(t * spd * 0.5) * 0.08;
+          return;
+        }
+        if (stateInfo.emote === 'wave') {
+          rig.rightArmPivot.rotation.x = -2.6;
+          rig.rightArmPivot.rotation.z = 0.3 + Math.sin(t * 10) * 0.35;
+          return;
+        }
+        if (stateInfo.emote === 'dance') {
+          rig.bodyGroup.position.y = Math.abs(Math.sin(t * 8)) * 0.14;
+          rig.bodyGroup.rotation.z = Math.sin(t * 4) * 0.15;
+          rig.leftArmPivot.rotation.x = -1.6 + Math.sin(t * 8) * 0.5;
+          rig.rightArmPivot.rotation.x = -1.6 - Math.sin(t * 8) * 0.5;
+          return;
+        }
+        if (stateInfo.emote === 'cheer') {
+          rig.leftArmPivot.rotation.x = -2.8;
+          rig.rightArmPivot.rotation.x = -2.8;
+          rig.bodyGroup.position.y = Math.abs(Math.sin(t * 9)) * 0.15;
+          return;
+        }
+        if (stateInfo.emote === 'sit') {
+          rig.bodyGroup.position.y = -0.45;
+          rig.leftLegPivot.rotation.x = -1.45;
+          rig.rightLegPivot.rotation.x = -1.45;
+          return;
+        }
+        rig.leftArmPivot.rotation.x = Math.sin(t * 2) * 0.05;
+        rig.rightArmPivot.rotation.x = -Math.sin(t * 2) * 0.05;
+        rig.headPivot.rotation.y = Math.sin(t * 1.1) * 0.28;
+      }
+
+      function initAvatarStage() {
+        const canvas = document.getElementById('avatar-preview-canvas');
+        if (!canvas || typeof THREE === 'undefined') return;
+        if (avAnimId) cancelAnimationFrame(avAnimId);
+        const w = canvas.clientWidth || 300;
+        const h = canvas.clientHeight || 256;
+        avScene = new THREE.Scene();
+        avCam = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+        avCam.position.set(0, 1.9, 5.0);
+        avCam.lookAt(0, 1.5, 0);
+        avRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        avRenderer.setSize(w, h);
+        avScene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.2));
+        const dLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dLight.position.set(4, 8, 6);
+        avScene.add(dLight);
+        rebuildAvatarStage();
+
+        let dragging = false, lx = 0;
+        canvas.onmousedown = e => { dragging = true; lx = e.clientX; };
+        window.addEventListener('mouseup', () => { dragging = false; });
+        canvas.onmousemove = e => { if (dragging) { avYaw += (e.clientX - lx) * 0.015; lx = e.clientX; } };
+        canvas.ontouchstart = e => { if (e.touches[0]) { dragging = true; lx = e.touches[0].clientX; } };
+        canvas.ontouchend = () => { dragging = false; };
+        canvas.ontouchmove = e => { if (dragging && e.touches[0]) { avYaw += (e.touches[0].clientX - lx) * 0.018; lx = e.touches[0].clientX; } };
+
+        const clock = new THREE.Clock();
+        const loop = () => {
+          if (currentView !== 'avatar') return;
+          avAnimId = requestAnimationFrame(loop);
+          if (avRig) {
+            avRig.group.rotation.y = avYaw;
+            updateAvatarAnimation(avRig, { time: clock.getElapsedTime(), moving: false, grounded: true });
+          }
+          avRenderer.render(avScene, avCam);
+        };
+        loop();
+      }
+
+      function rebuildAvatarStage() {
+        if (!avScene) return;
+        if (avRig) avScene.remove(avRig.group);
+        avRig = createAvatarRig();
+        avScene.add(avRig.group);
+      }
+
+      window.filterShop = function (cat) {
+        selectedShopCat = cat;
+        document.querySelectorAll('.shop-cat-btn').forEach(btn => {
+          btn.className = `shop-cat-btn px-3 py-1.5 rounded-full text-xs font-extrabold ${btn.dataset.scat === cat ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-[#191C24]'}`;
+        });
+        renderShopGrid();
+      };
+
+      function renderShopGrid() {
+        const grid = document.getElementById('avatar-shop-grid');
+        if (!grid) return;
+        let items = getAllShopItems();
+        if (selectedShopCat === 'ugc') items = items.filter(i => i.isUgc);
+        else if (selectedShopCat !== 'all') items = items.filter(i => i.type === selectedShopCat);
+
+        const ownerFlag = isOwner();
+        grid.innerHTML = items.map(item => {
+          const owned = state.ownedItems.includes(item.id);
+          const equipped = state.equipped[item.type] === item.id;
+          return `
+            <div class="p-3 rounded-2xl bg-white dark:bg-[#161920] border ${equipped ? 'border-blue-500' : 'border-slate-200 dark:border-white/10'} flex flex-col justify-between gap-2 relative">
+              ${item.isUgc ? `<span class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] font-black">UGC</span>` : ''}
+              <div style="background:${item.color}25;" class="h-16 rounded-xl flex items-center justify-center text-3xl">${item.icon || '👕'}</div>
+              <div>
+                <div class="text-xs font-black truncate">${item.name}</div>
+                <div class="text-[11px] font-bold ${equipped ? 'text-blue-400' : (owned ? 'text-emerald-400' : 'text-amber-400')}">${equipped ? 'Dipakai' : (owned ? 'Dimiliki' : `${item.price} R$`)}</div>
+              </div>
+              <div class="space-y-1">
+                <button type="button" onclick="window.handleShopItemClick('${item.id}')" class="w-full py-1.5 rounded-xl text-xs font-extrabold ${equipped ? 'bg-slate-200 dark:bg-white/10' : (owned ? 'bg-blue-600 text-white' : 'bg-[#00B06F] text-white')}">${equipped ? 'Lepas' : (owned ? 'Pakai' : `Beli ${item.price} R$`)}</button>
+                ${(ownerFlag && item.isUgc) ? `<button type="button" onclick="window.ownerDeleteShopItem('${item.id}')" class="w-full py-1 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 text-[10px] font-black">🗑️ Hapus</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.handleShopItemClick = function (id) {
+        const item = getAllShopItems().find(i => i.id === id);
+        if (!item) return;
+        if (!state.ownedItems.includes(id)) {
+          if (state.coins < item.price) {
+            window.showToast(`⚠️ Robux kurang! Butuh ${item.price} R$.`);
+            return;
+          }
+          state.coins -= item.price;
+          state.ownedItems.push(id);
+          state.equipped[item.type] = id;
+          playTone(880, 0.15);
+          window.showToast(`🛍️ Membeli ${item.name}!`);
+        } else {
+          state.equipped[item.type] = state.equipped[item.type] === id ? null : id;
+        }
+        saveAccountState();
+        syncUI();
+        renderShopGrid();
+        rebuildAvatarStage();
+        broadcastPresence(true);
+      };
+
+      window.ownerDeleteShopItem = function (id) {
+        if (!isOwner()) return;
+        worldDB.ugcItems = (worldDB.ugcItems || []).filter(i => i.id !== id);
+        saveWorldState();
+        renderShopGrid();
+        rebuildAvatarStage();
+        window.showToast('🗑️ Item UGC dihapus dari Toko oleh Owner!');
+      };
+
+      // ==================== 6. CLASSIC ROBLOX STUDIO LITE ====================
+      let studioParts = [
+        { id: 'sp-1', name: 'SpawnLocation', type: 'spawn', x: 0, y: 0.25, z: 0, w: 6, h: 0.5, d: 6, rotY: 0, color: '#E2E8F0' },
+        { id: 'sp-2', name: 'Platform_1', type: 'platform', x: 0, y: 1.0, z: -9, w: 6, h: 1, d: 6, rotY: 0, color: '#3B82F6' },
+        { id: 'sp-3', name: 'RobuxCoin', type: 'coin', x: 0, y: 2.3, z: -9, w: 1.2, h: 1.2, d: 1.2, rotY: 0, color: '#FACC15' },
+        { id: 'sp-4', name: 'FinishPad', type: 'finish', x: 0, y: 1.8, z: -18, w: 7, h: 1, d: 7, rotY: 0, color: '#10B981' }
+      ];
+      let selPartIdx = 0;
+      let copiedPart = null;
+      let stScene, stCam, stRenderer, stAnimId, stYaw = 0.6, stPitch = 0.45, stDist = 24, stMeshes = [];
+      let ugcScene, ugcCam, ugcRenderer, ugcAnimId, ugcRig, ugcYaw = 0.5;
+
+      window.toggleStudioFileMenu = function (force) {
+        const el = document.getElementById('studio-file-menu');
+        if (el) el.classList.toggle('hidden', typeof force === 'boolean' ? !force : !el.classList.contains('hidden'));
+      };
+      window.toggleStudioToolbox = function (force) {
+        const el = document.getElementById('studio-toolbox-popup');
+        if (el) el.classList.toggle('hidden', typeof force === 'boolean' ? !force : !el.classList.contains('hidden'));
+      };
+      window.setStudioTool = function (tool) {
+        ['select', 'move', 'scale', 'rotate'].forEach(t => {
+          const b = document.getElementById(`st-tool-${t}`);
+          if (b) b.classList.toggle('active', t === tool);
+        });
+      };
+      window.toggleStudioMultiSelect = function () {
+        const b = document.getElementById('st-multi-btn');
+        if (b) b.classList.toggle('active');
+      };
+      window.saveStudioDraft = function () {
+        window.showToast('💾 Draft disimpan!');
+      };
+
+      window.switchStudioTab = function (tab) {
+        const pMap = document.getElementById('studio-panel-map');
+        const pUgc = document.getElementById('studio-panel-ugc');
+        const tMap = document.getElementById('studio-tab-map');
+        const tUgc = document.getElementById('studio-tab-ugc');
+        if (pMap) pMap.classList.toggle('hidden', tab !== 'map');
+        if (pUgc) pUgc.classList.toggle('hidden', tab !== 'ugc');
+        if (tMap) tMap.className = `px-2.5 py-1 border border-slate-500 rounded-xs ${tab === 'map' ? 'bg-white' : 'bg-[#FDE047]'}`;
+        if (tUgc) tUgc.className = `px-2.5 py-1 border border-slate-500 rounded-xs ${tab === 'ugc' ? 'bg-white' : 'bg-[#FDE047]'}`;
+        if (tab === 'map') {
+          initStudio3D();
+          bindStudioResizer();
+        } else {
+          initUgc3D();
+        }
+      };
+
+      function bindStudioResizer() {
+        const res = document.getElementById('studio-resizer');
+        const side = document.getElementById('studio-sidebar-panel');
+        if (!res || !side || res.dataset.bound) return;
+        res.dataset.bound = '1';
+        let active = false, sx = 0, sw = 288;
+        res.onmousedown = e => { active = true; sx = e.clientX; sw = side.offsetWidth; };
+        window.addEventListener('mousemove', e => {
+          if (!active) return;
+          const nw = Math.max(200, Math.min(440, sw - (e.clientX - sx)));
+          side.style.width = `${nw}px`;
+        });
+        window.addEventListener('mouseup', () => { active = false; });
+      }
+
+      function createBaseplateTex() {
+        const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#94A3B8'; ctx.fillRect(0, 0, 128, 128);
+        ctx.strokeStyle = 'rgba(15,23,42,0.18)'; ctx.strokeRect(0, 0, 128, 128);
+        ctx.fillStyle = '#CBD5E1';
+        [32, 96].forEach(x => [32, 96].forEach(y => { ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill(); }));
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(22, 22);
+        return tex;
+      }
+
+      function createSunSpawnTex() {
+        const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#E2E8F0'; ctx.fillRect(0, 0, 256, 256);
+        ctx.save();
+        ctx.translate(128, 128);
+        ctx.fillStyle = '#0F172A';
+        for (let i = 0; i < 12; i++) {
+          ctx.rotate(Math.PI / 6);
+          ctx.beginPath();
+          ctx.moveTo(0, -108);
+          ctx.lineTo(14, -36);
+          ctx.lineTo(-14, -36);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        return new THREE.CanvasTexture(c);
+      }
+
+      function initStudio3D() {
+        const canvas = document.getElementById('studio-3d-canvas');
+        if (!canvas || typeof THREE === 'undefined') return;
+        if (stAnimId) cancelAnimationFrame(stAnimId);
+        const w = canvas.clientWidth || 600, h = canvas.clientHeight || 360;
+        stScene = new THREE.Scene();
+        stScene.background = new THREE.Color(0x87CEEB);
+        stCam = new THREE.PerspectiveCamera(52, w / h, 0.1, 400);
+        stRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        stRenderer.setSize(w, h);
+        stScene.add(new THREE.HemisphereLight(0xffffff, 0x475569, 1.1));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.85); sun.position.set(20, 40, 20); stScene.add(sun);
+
+        const base = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshStandardMaterial({ map: createBaseplateTex() }));
+        base.position.set(0, -0.5, -10);
+        stScene.add(base);
+
+        let drag = false, lx = 0, ly = 0;
+        canvas.onmousedown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
+        window.addEventListener('mouseup', () => { drag = false; });
+        canvas.onmousemove = e => {
+          if (!drag) return;
+          stYaw -= (e.clientX - lx) * 0.01;
+          stPitch = Math.max(0.12, Math.min(1.3, stPitch + (e.clientY - ly) * 0.01));
+          lx = e.clientX; ly = e.clientY;
+        };
+        canvas.ontouchstart = e => { if (e.touches[0]) { drag = true; lx = e.touches[0].clientX; ly = e.touches[0].clientY; } };
+        canvas.ontouchend = () => { drag = false; };
+        canvas.ontouchmove = e => {
+          if (!drag || !e.touches[0]) return;
+          stYaw -= (e.touches[0].clientX - lx) * 0.012;
+          stPitch = Math.max(0.12, Math.min(1.3, stPitch + (e.touches[0].clientY - ly) * 0.012));
+          lx = e.touches[0].clientX; ly = e.touches[0].clientY;
+        };
+
+        refreshStudioMeshes();
+        renderStudioPanels();
+
+        const loop = () => {
+          if (currentView !== 'studio') return;
+          stAnimId = requestAnimationFrame(loop);
+          const target = studioParts[selPartIdx] || { x: 0, y: 1, z: -5 };
+          stCam.position.set(
+            target.x + Math.sin(stYaw) * Math.cos(stPitch) * stDist,
+            Math.max(2, target.y + Math.sin(stPitch) * stDist),
+            target.z + Math.cos(stYaw) * Math.cos(stPitch) * stDist
+          );
+          stCam.lookAt(target.x, target.y, target.z);
+          stRenderer.render(stScene, stCam);
+        };
+        loop();
+      }
+
+      function refreshStudioMeshes() {
+        if (!stScene) return;
+        stMeshes.forEach(m => stScene.remove(m));
+        stMeshes = [];
+        const sunTex = createSunSpawnTex();
+        studioParts.forEach((p, i) => {
+          const geom = p.type === 'coin' ? new THREE.CylinderGeometry(0.6, 0.6, 0.25, 16) : new THREE.BoxGeometry(p.w, p.h, p.d);
+          const mat = p.type === 'spawn'
+            ? new THREE.MeshStandardMaterial({ map: sunTex })
+            : new THREE.MeshStandardMaterial({ color: p.color, emissive: i === selPartIdx ? '#38BDF8' : '#000', emissiveIntensity: i === selPartIdx ? 0.3 : 0 });
+          const mesh = new THREE.Mesh(geom, mat);
+          if (p.type === 'coin') mesh.rotation.x = Math.PI / 2;
+          mesh.rotation.y = p.rotY || 0;
+          mesh.position.set(p.x, p.y, p.z);
+          stScene.add(mesh);
+          stMeshes.push(mesh);
+        });
+      }
+
+      function renderStudioPanels() {
+        const exp = document.getElementById('studio-explorer-list');
+        const prop = document.getElementById('studio-properties-panel');
+        if (!exp || !prop) return;
+        exp.innerHTML = `
+          <div class="font-black text-slate-800 px-1">▾ 🌍 Workspace</div>
+          <div class="pl-3 space-y-0.5">
+            ${studioParts.map((p, i) => `<div onclick="window.selectStudioPart(${i})" class="cursor-pointer px-1.5 py-0.5 rounded-xs ${i === selPartIdx ? 'bg-blue-600 text-white font-bold' : 'hover:bg-slate-200'}">■ ${p.name}</div>`).join('')}
+          </div>
+          <div class="px-1 text-slate-600">▸ 👥 Players</div>
+          <div class="px-1 text-slate-600">▸ 💡 Lighting</div>
+          <div class="px-1 text-slate-600">▸ 📦 ReplicatedFirst</div>
+          <div class="px-1 text-slate-600">▸ 🗄️ ReplicatedStorage</div>
+          <div class="px-1 text-slate-600">▸ 🔊 SoundService</div>
+          <div class="px-1 text-slate-600">▸ 🖥️ StarterGui</div>
+        `;
+        const p = studioParts[selPartIdx];
+        if (!p) return;
+        prop.innerHTML = `
+          <div class="grid grid-cols-2 gap-1 items-center"><span class="font-bold">Name</span><input oninput="window.updateStudioProp('name', this.value)" value="${p.name}" class="px-1 py-0.5 bg-white border border-slate-300" /></div>
+          <div class="grid grid-cols-2 gap-1 items-center"><span class="font-bold">Behavior</span><select onchange="window.updateStudioProp('type', this.value)" class="px-1 py-0.5 bg-white border border-slate-300">
+            <option value="platform" ${p.type === 'platform' ? 'selected' : ''}>Platform</option>
+            <option value="checkpoint" ${p.type === 'checkpoint' ? 'selected' : ''}>Checkpoint</option>
+            <option value="killbrick" ${p.type === 'killbrick' ? 'selected' : ''}>KillBrick</option>
+            <option value="trampoline" ${p.type === 'trampoline' ? 'selected' : ''}>Trampoline</option>
+            <option value="coin" ${p.type === 'coin' ? 'selected' : ''}>Coin (+1 R$)</option>
+            <option value="finish" ${p.type === 'finish' ? 'selected' : ''}>Finish</option>
+          </select></div>
+          <div class="grid grid-cols-2 gap-1 items-center"><span class="font-bold">BrickColor</span><input type="color" oninput="window.updateStudioProp('color', this.value)" value="${p.color}" class="w-full h-6 bg-white border border-slate-300" /></div>
+          <div class="grid grid-cols-2 gap-1 items-center"><span class="font-bold">Position</span><div class="grid grid-cols-3 gap-0.5">
+            <input type="number" step="0.5" oninput="window.updateStudioProp('x', parseFloat(this.value)||0)" value="${p.x}" class="px-1 bg-white border" />
+            <input type="number" step="0.5" oninput="window.updateStudioProp('y', parseFloat(this.value)||0)" value="${p.y}" class="px-1 bg-white border" />
+            <input type="number" step="0.5" oninput="window.updateStudioProp('z', parseFloat(this.value)||0)" value="${p.z}" class="px-1 bg-white border" />
+          </div></div>
+          <div class="grid grid-cols-2 gap-1 items-center"><span class="font-bold">Size</span><div class="grid grid-cols-3 gap-0.5">
+            <input type="number" step="0.5" oninput="window.updateStudioProp('w', parseFloat(this.value)||1)" value="${p.w}" class="px-1 bg-white border" />
+            <input type="number" step="0.5" oninput="window.updateStudioProp('h', parseFloat(this.value)||0.5)" value="${p.h}" class="px-1 bg-white border" />
+            <input type="number" step="0.5" oninput="window.updateStudioProp('d', parseFloat(this.value)||1)" value="${p.d}" class="px-1 bg-white border" />
+          </div></div>
+        `;
+      }
+
+      window.selectStudioPart = function (idx) { selPartIdx = idx; refreshStudioMeshes(); renderStudioPanels(); };
+      window.updateStudioProp = function (key, val) {
+        if (!studioParts[selPartIdx]) return;
+        studioParts[selPartIdx][key] = val;
+        refreshStudioMeshes();
+        if (key === 'name') renderStudioPanels();
+      };
+      window.nudgeStudioPart = function (dx, dy, dz) {
+        const p = studioParts[selPartIdx]; if (!p) return;
+        const step = parseFloat((document.getElementById('studio-snap-move') || {}).value) || 1;
+        p.x += dx * step; p.y = Math.max(0.25, p.y + dy * step); p.z += dz * step;
+        refreshStudioMeshes(); renderStudioPanels();
+      };
+      window.rotateStudioPart = function () {
+        const p = studioParts[selPartIdx]; if (!p) return;
+        const deg = parseFloat((document.getElementById('studio-snap-rot') || {}).value) || 5;
+        p.rotY = (p.rotY || 0) + (deg * Math.PI) / 180;
+        refreshStudioMeshes();
+      };
+      window.scaleStudioPart = function (factor) {
+        const p = studioParts[selPartIdx]; if (!p) return;
+        p.w = Math.min(20, Math.max(1, +(p.w * factor).toFixed(1)));
+        p.d = Math.min(20, Math.max(1, +(p.d * factor).toFixed(1)));
+        refreshStudioMeshes(); renderStudioPanels();
+      };
+      window.addStudioPart = function (type) {
+        const last = studioParts[studioParts.length - 1] || { x: 0, y: 1, z: 0 };
+        const cols = { platform: '#3B82F6', checkpoint: '#F59E0B', killbrick: '#EF4444', trampoline: '#22C55E', coin: '#FACC15', finish: '#A855F7' };
+        studioParts.push({ id: 'sp-' + Date.now(), name: `${type}_${studioParts.length + 1}`, type, x: last.x, y: last.y + 0.6, z: last.z - 8, w: 5, h: 1, d: 5, rotY: 0, color: cols[type] || '#3B82F6' });
+        selPartIdx = studioParts.length - 1;
+        refreshStudioMeshes(); renderStudioPanels();
+      };
+      window.copyStudioPart = function () { copiedPart = JSON.parse(JSON.stringify(studioParts[selPartIdx])); window.showToast('📋 Part disalin!'); };
+      window.pasteStudioPart = function () { if (!copiedPart) return; const c = JSON.parse(JSON.stringify(copiedPart)); c.x += 2; studioParts.push(c); selPartIdx = studioParts.length - 1; refreshStudioMeshes(); renderStudioPanels(); };
+      window.duplicateStudioPart = function () { window.copyStudioPart(); window.pasteStudioPart(); };
+      window.deleteStudioPart = function () { if (studioParts.length <= 1) return; studioParts.splice(selPartIdx, 1); selPartIdx = 0; refreshStudioMeshes(); renderStudioPanels(); };
+
+      window.testStudioMap = function () {
+        const title = (document.getElementById('studio-map-title') || {}).value || 'Map Uji Coba';
+        launchMap({ id: 'studio-test', title, creator: state.username, genre: 'Studio UGC', emoji: '🛠️', customParts: JSON.parse(JSON.stringify(studioParts)) });
+      };
+
+      window.publishStudioMap = function () {
+        const title = ((document.getElementById('studio-map-title') || {}).value || '').trim() || 'Obby Baru';
+        worldDB.customMaps = worldDB.customMaps || [];
+        worldDB.customMaps.unshift({
+          id: 'cmap-' + Date.now(), title, creator: state.username, genre: 'Studio UGC', emoji: '🏗️', rating: '100%',
+          bgGradient: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', desc: `Map buatan @${state.username} di Studio Lite! Hadiah 5–10 R$.`,
+          customParts: JSON.parse(JSON.stringify(studioParts))
+        });
+        saveWorldState();
+        window.showToast(`🚀 "${title}" dipublikasikan ke Beranda!`);
+        window.navigate('home');
+      };
+
+      function initUgc3D() {
+        const canvas = document.getElementById('studio-ugc-canvas');
+        if (!canvas || typeof THREE === 'undefined') return;
+        if (ugcAnimId) cancelAnimationFrame(ugcAnimId);
+        const w = canvas.clientWidth || 300, h = canvas.clientHeight || 256;
+        ugcScene = new THREE.Scene();
+        ugcCam = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+        ugcCam.position.set(0, 1.9, 5.0); ugcCam.lookAt(0, 1.5, 0);
+        ugcRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        ugcRenderer.setSize(w, h);
+        ugcScene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.2));
+        const l = new THREE.DirectionalLight(0xffffff, 0.9); l.position.set(4, 8, 6); ugcScene.add(l);
+
+        let drag = false, lx = 0;
+        canvas.onmousedown = e => { drag = true; lx = e.clientX; };
+        window.addEventListener('mouseup', () => { drag = false; });
+        canvas.onmousemove = e => { if (drag) { ugcYaw += (e.clientX - lx) * 0.018; lx = e.clientX; } };
+        canvas.ontouchstart = e => { if (e.touches[0]) { drag = true; lx = e.touches[0].clientX; } };
+        canvas.ontouchend = () => { drag = false; };
+        canvas.ontouchmove = e => { if (drag && e.touches[0]) { ugcYaw += (e.touches[0].clientX - lx) * 0.02; lx = e.touches[0].clientX; } };
+
+        window.updateUgcMannequin();
+        const clock = new THREE.Clock();
+        const loop = () => {
+          if (currentView !== 'studio') return;
+          ugcAnimId = requestAnimationFrame(loop);
+          if (ugcRig) {
+            ugcRig.group.rotation.y = ugcYaw;
+            updateAvatarAnimation(ugcRig, { time: clock.getElapsedTime(), moving: false, grounded: true });
+          }
+          ugcRenderer.render(ugcScene, ugcCam);
+        };
+        loop();
+      }
+
+      window.updateUgcMannequin = function () {
+        if (!ugcScene) return;
+        if (ugcRig) ugcScene.remove(ugcRig.group);
+        const type = (document.getElementById('ugc-item-type') || {}).value || 'hat';
+        const color = (document.getElementById('ugc-item-color') || {}).value || '#FACC15';
+        const tempId = 'temp-ugc-prev';
+        worldDB.ugcItems.unshift({ id: tempId, type, color });
+        ugcRig = createAvatarRig({ equipped: { ...state.equipped, [type]: tempId }, headless: false, korblox: false });
+        worldDB.ugcItems.shift();
+        ugcScene.add(ugcRig.group);
+      };
+
+      window.publishUgcToShop = function () {
+        const name = ((document.getElementById('ugc-item-name') || {}).value || '').trim();
+        if (!name) { window.showToast('⚠️ Isi nama item UGC!'); return; }
+        const type = (document.getElementById('ugc-item-type') || {}).value || 'hat';
+        const color = (document.getElementById('ugc-item-color') || {}).value || '#FACC15';
+        const price = Math.max(0, parseInt((document.getElementById('ugc-item-price') || {}).value) || 0);
+        const item = { id: 'ugc-' + Date.now(), name, creator: state.username, type, color, price, icon: type === 'hat' ? '👑' : (type === 'pants' ? '👖' : '👕'), isUgc: true };
+        worldDB.ugcItems.unshift(item);
+        state.ownedItems.push(item.id);
+        state.equipped[type] = item.id;
+        saveWorldState();
+        saveAccountState();
+        window.showToast(`✨ "${name}" dipublikasikan ke Toko Avatar!`);
+        window.navigate('avatar');
+      };
+
+      // ==================== 7. PROMO CODES ====================
+      function renderPromoCodesPanel() {
+        syncUI();
+        const listEl = document.getElementById('active-promo-codes-list');
+        if (!listEl || !isOwner()) return;
+        listEl.innerHTML = (worldDB.promoCodes || []).map((c, idx) => `
+          <div class="p-2.5 rounded-xl bg-[#0F1115] border border-white/10 flex items-center justify-between text-xs">
+            <div><span class="font-black text-amber-400">${c.code}</span> <span class="text-emerald-400 font-bold ml-2">+${c.reward} R$</span></div>
+            <button type="button" onclick="window.ownerDeletePromoCode(${idx})" class="px-2.5 py-1 rounded-lg bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white font-black text-[10px]">Hapus</button>
+          </div>
+        `).join('');
+      }
+
+      window.handleCreatePromoCode = function (e) {
+        e.preventDefault();
+        if (!isOwner()) return;
+        const codeInp = document.getElementById('new-promo-code');
+        const rewInp = document.getElementById('new-promo-reward');
+        const code = (codeInp ? codeInp.value : '').trim().toUpperCase();
+        const reward = Math.max(1, parseInt(rewInp ? rewInp.value : '10') || 10);
+        if (!code) return;
+        worldDB.promoCodes = (worldDB.promoCodes || []).filter(p => p.code !== code);
+        worldDB.promoCodes.unshift({ code, reward });
+        saveWorldState();
+        if (codeInp) codeInp.value = '';
+        renderPromoCodesPanel();
+        window.showToast(`🎟️ Kode promo "${code}" (+${reward} R$) dibuat!`);
+      };
+
+      window.ownerDeletePromoCode = function (idx) {
+        if (!isOwner()) return;
+        worldDB.promoCodes.splice(idx, 1);
+        saveWorldState();
+        renderPromoCodesPanel();
+        window.showToast('🗑️ Kode promo dihapus.');
+      };
+
+      window.handleRedeemCode = function (e) {
+        e.preventDefault();
+        const inp = document.getElementById('redeem-code-input');
+        const code = (inp ? inp.value : '').trim().toUpperCase();
+        if (!code) return;
+        const found = (worldDB.promoCodes || []).find(p => p.code === code);
+        if (!found) {
+          window.showToast('❌ Kode promo tidak valid!');
+          return;
+        }
+        if (state.redeemedCodes.includes(code)) {
+          window.showToast('⚠️ Kode ini sudah pernah diklaim oleh akunmu!');
+          return;
+        }
+        state.redeemedCodes.push(code);
+        state.coins += found.reward;
+        saveAccountState();
+        syncUI();
+        playTone(1046, 0.25);
+        if (inp) inp.value = '';
+        window.showToast(`🎉 Redeem "${code}" sukses! +${found.reward} R$!`);
+      };
+
+      // ==================== 8. REAL-TIME CHAT & 3D SPEECH BUBBLES ====================
+      window.switchLobbyChatTab = function (tab) {
+        lobbyChatTab = tab;
+        ['server', 'global'].forEach(t => {
+          const b = document.getElementById(`lchat-tab-${t}`);
+          if (b) b.className = `px-3 py-1 rounded-lg ${t === tab ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
+        });
+        renderLobbyChat();
+      };
+
+      function renderLobbyChat() {
+        const box = document.getElementById('lobby-chat-box');
+        if (!box) return;
+        const arr = lobbyChatTab === 'server' ? (worldDB.serverChat || []) : (worldDB.globalChat || []);
+        box.innerHTML = arr.map(m => `<div><strong class="text-blue-400">${m.badge || '🧑'} ${m.user}:</strong> ${m.text}</div>`).join('');
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function dispatchChatMessage(channel, txt) {
+        const msg = { user: state.username, badge: isOwner() ? '👑' : '🧑', text: txt, ts: Date.now() };
+        if (channel === 'server') {
+          worldDB.serverChat = [...(worldDB.serverChat || []).slice(-45), msg];
+          latestBubbleText = txt;
+          latestBubbleAt = Date.now();
+          if (playerRig) attachSpeechBubble(playerRig, txt);
+          if (bc) bc.postMessage({ type: 'chat_bubble', sessionId: SESSION_ID, text: txt });
+          broadcastPresence(true);
+        } else {
+          worldDB.globalChat = [...(worldDB.globalChat || []).slice(-45), msg];
+        }
+        saveWorldState();
+        renderLobbyChat();
+        renderInGameChat();
+      }
+
+      window.sendLobbyChat = function (e) {
+        e.preventDefault();
+        const inp = document.getElementById('lobby-chat-input');
+        const txt = (inp ? inp.value : '').trim();
+        if (!txt) return;
+        if (inp) inp.value = '';
+        dispatchChatMessage(lobbyChatTab, txt);
+      };
+
+      window.toggleInGameChat = function () {
+        const box = document.getElementById('ingame-chat-box');
+        if (box) {
+          box.classList.toggle('hidden');
+          renderInGameChat();
+        }
+      };
+
+      window.switchInGameChatTab = function (tab) {
+        inGameChatTab = tab;
+        ['server', 'global'].forEach(t => {
+          const b = document.getElementById(`ig-tab-${t}`);
+          if (b) b.className = `px-2 py-0.5 rounded ${t === tab ? 'bg-blue-600' : 'bg-white/10'}`;
+        });
+        renderInGameChat();
+      };
+
+      function renderInGameChat() {
+        const box = document.getElementById('ingame-chat-messages');
+        if (!box) return;
+        const arr = inGameChatTab === 'server' ? (worldDB.serverChat || []) : (worldDB.globalChat || []);
+        box.innerHTML = arr.map(m => `<div><strong class="text-sky-400">${m.badge || '🧑'} ${m.user}:</strong> ${m.text}</div>`).join('');
+        box.scrollTop = box.scrollHeight;
+      }
+
+      window.sendInGameChat = function (e) {
+        e.preventDefault();
+        const inp = document.getElementById('ingame-chat-input');
+        const txt = (inp ? inp.value : '').trim();
+        if (!txt) return;
+        if (inp) inp.value = '';
+        dispatchChatMessage(inGameChatTab, txt);
+      };
+
+      // ==================== 9. 3D MULTIPLAYER GAME ENGINE (5-10 R$ MAP REWARD) ====================
+      let gScene, gCam, gRenderer, gAnimId, currentGame = null;
+      let playerRig = null, playerPos = null, playerVelY = 0, grounded = false, currentMovingState = false;
+      let respawnPos = new THREE.Vector3(0, 1.5, 0);
+      let worldBlocks = [], worldCoins = [], brainrots = [], carryingBrainrot = null;
+      let tsunamiWave = null, tsunamiZ = 38, tycoonPads = [], tycoonLevel = 0, tycoonClock = 0;
+      let remotePlayerRigs = {};
+      let stageNum = 1, mapWon = false, currentEmote = null;
+      let camYaw = 0, camPitch = 0.4, camDist = 10, firstPerson = false;
+      let joyFwd = 0, joyRight = 0;
+      let pwrSpeed = false, pwrFly = false, pwrLowGrav = false, pwrDisco = false;
+      const keysDown = {};
+
+      function createNameTagSprite(name, ownerCrown) {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+        const ctx = c.getContext('2d');
+        const label = ownerCrown ? `👑 OWNER • ${name}` : name;
+        ctx.font = '800 34px Inter, sans-serif';
+        const w = Math.min(490, ctx.measureText(label).width + 52);
+        ctx.fillStyle = ownerCrown ? 'rgba(28, 22, 6, 0.9)' : 'rgba(15, 23, 42, 0.82)';
+        ctx.beginPath(); ctx.roundRect((512 - w) / 2, 30, w, 66, 33); ctx.fill();
+        ctx.lineWidth = ownerCrown ? 4 : 2;
+        ctx.strokeStyle = ownerCrown ? '#FACC15' : 'rgba(255,255,255,0.3)';
+        ctx.stroke();
+        ctx.fillStyle = ownerCrown ? '#FDE047' : '#FFFFFF';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, 256, 64);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+        sp.scale.set(3.4, 0.85, 1);
+        sp.position.set(0, 3.55, 0);
+        return sp;
+      }
+
+      function attachSpeechBubble(rig, text) {
+        if (!rig || !rig.group || !text) return;
+        if (rig.bubbleSprite) rig.group.remove(rig.bubbleSprite);
+        if (rig.bubbleTimer) clearTimeout(rig.bubbleTimer);
+
+        const c = document.createElement('canvas'); c.width = 512; c.height = 150;
+        const ctx = c.getContext('2d');
+        const msg = text.length > 32 ? text.slice(0, 32) + '...' : text;
+        ctx.font = '700 30px Inter, sans-serif';
+        const bw = Math.min(480, Math.max(150, ctx.measureText(msg).width + 50));
+        const bx = (512 - bw) / 2;
+        ctx.fillStyle = 'rgba(255,255,255,0.96)';
+        ctx.beginPath(); ctx.roundRect(bx, 20, bw, 70, 20); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(242, 90); ctx.lineTo(270, 90); ctx.lineTo(256, 108); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#0F172A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(msg, 256, 56);
+
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+        sp.scale.set(3.8, 1.1, 1);
+        sp.position.set(0, 4.5, 0);
+        rig.group.add(sp);
+        rig.bubbleSprite = sp;
+        rig.bubbleTimer = setTimeout(() => {
+          if (rig.group && rig.bubbleSprite === sp) {
+            rig.group.remove(sp);
+            rig.bubbleSprite = null;
+          }
+        }, 5500);
+      }
+
+      function handleRemotePresenceUpdate() {
+        syncUI();
+        if (currentView === 'home' || currentView === 'friends') renderFriendsViews();
+        if (currentView === 'home') renderGamesGrid();
+        if (currentGame) {
+          syncRemotePlayersIn3DScene();
+          renderInGamePlayersModal();
+        }
+      }
+
+      function syncRemotePlayersIn3DScene() {
+        if (!gScene || !currentGame) return;
+        const activeSameMap = getActiveOnlinePlayers().filter(p => p.sessionId !== SESSION_ID && p.mapId === currentGame.id);
+        const activeIds = new Set(activeSameMap.map(p => p.sessionId));
+
+        Object.keys(remotePlayerRigs).forEach(sid => {
+          if (!activeIds.has(sid)) {
+            gScene.remove(remotePlayerRigs[sid].rig.group);
+            delete remotePlayerRigs[sid];
+          }
+        });
+
+        activeSameMap.forEach(p => {
+          const sig = `${p.username}|${p.isOwner}|${p.skinColor}|${JSON.stringify(p.equipped)}|${p.headless}|${p.korblox}`;
+          let entry = remotePlayerRigs[p.sessionId];
+          if (!entry || entry.signature !== sig) {
+            if (entry) gScene.remove(entry.rig.group);
+            const rig = createAvatarRig({
+              skinColor: p.skinColor,
+              equipped: p.equipped,
+              headless: p.headless,
+              korblox: p.korblox
+            });
+            rig.group.add(createNameTagSprite(p.username, p.isOwner));
+            rig.group.position.set(p.x || 0, p.y || 1.5, p.z || 0);
+            gScene.add(rig.group);
+            entry = {
+              rig,
+              targetPos: new THREE.Vector3(p.x || 0, p.y || 1.5, p.z || 0),
+              targetYaw: p.yaw || 0,
+              moving: !!p.moving,
+              grounded: p.grounded !== false,
+              emote: p.emote || null,
+              signature: sig
+            };
+            remotePlayerRigs[p.sessionId] = entry;
+          } else {
+            entry.targetPos.set(p.x || 0, p.y || 1.5, p.z || 0);
+            entry.targetYaw = p.yaw || 0;
+            entry.moving = !!p.moving;
+            entry.grounded = p.grounded !== false;
+            entry.emote = p.emote || null;
+          }
+
+          if (p.bubbleText && p.bubbleAt && lastBubbleMsgBySession[p.sessionId] !== p.bubbleAt) {
+            lastBubbleMsgBySession[p.sessionId] = p.bubbleAt;
+            attachSpeechBubble(entry.rig, p.bubbleText);
+          }
+        });
+      }
+
+      window.startGameById = function (id, spawnOverride = null) {
+        const map = getAvailableMaps().find(m => m.id === id) || BUILTIN_MAPS[0];
+        launchMap(map, spawnOverride);
+      };
+
+      function launchMap(map, spawnOverride = null) {
+        currentGame = map;
+        stageNum = 1;
+        mapWon = false;
+        currentEmote = null;
+        pwrSpeed = false; pwrFly = false; pwrLowGrav = false; pwrDisco = false;
+        const overlay = document.getElementById('game-overlay');
+        if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('flex'); }
+        const tEl = document.getElementById('hud-map-title');
+        if (tEl) tEl.textContent = map.title;
+        syncUI();
+        build3DGameScene(map, spawnOverride);
+        window.setGameGraphics(state.graphics || 'medium');
+        broadcastPresence(true);
+        syncRemotePlayersIn3DScene();
+        renderInGamePlayersModal();
+      }
+
+      window.exitGameOverlay = function () {
+        if (gAnimId) cancelAnimationFrame(gAnimId);
+        currentGame = null;
+        remotePlayerRigs = {};
+        const overlay = document.getElementById('game-overlay');
+        if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('flex'); }
+        const adminP = document.getElementById('admin-abyus-panel');
+        if (adminP) adminP.classList.add('hidden');
+        const plM = document.getElementById('ingame-players-modal');
+        if (plM) plM.classList.add('hidden');
+        broadcastPresence(true);
+        syncUI();
+        renderGamesGrid();
+        renderFriendsViews();
+      };
+
+      window.toggleInGameMenu = function (f) {
+        const m = document.getElementById('ingame-menu-modal');
+        if (m) m.classList.toggle('hidden', typeof f === 'boolean' ? !f : !m.classList.contains('hidden'));
+      };
+      window.toggleEmoteWheel = function () {
+        const p = document.getElementById('ingame-emote-panel');
+        if (p) p.classList.toggle('hidden');
+      };
+      window.setPlayerEmote = function (em) {
+        currentEmote = currentEmote === em ? null : em;
+        const p = document.getElementById('ingame-emote-panel');
+        if (p) p.classList.add('hidden');
+        broadcastPresence(true);
+      };
+      window.toggleFirstPerson = function () {
+        firstPerson = !firstPerson;
+        const b = document.getElementById('btn-fp-toggle');
+        if (b) b.textContent = firstPerson ? '1st Person' : '3rd Person';
+      };
+      window.zoomGameCamera = function (d) {
+        camDist = Math.max(4.5, Math.min(24, camDist + d));
+      };
+
+      window.setGameGraphics = function (lvl) {
+        state.graphics = lvl;
+        ['low', 'medium', 'high'].forEach(k => {
+          const b = document.getElementById(`gfx-${k}`);
+          if (b) b.className = `py-1.5 rounded-lg text-[11px] font-extrabold ${k === lvl ? 'bg-blue-600 text-white' : 'bg-white/10'}`;
+        });
+        if (!gRenderer || !gScene) return;
+        if (lvl === 'low') {
+          gRenderer.setPixelRatio(0.65);
+          gRenderer.shadowMap.enabled = false;
+          gScene.fog = new THREE.Fog(0x1E293B, 20, 65);
+        } else if (lvl === 'medium') {
+          gRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
+          gRenderer.shadowMap.enabled = true;
+          gScene.fog = new THREE.Fog(0x38BDF8, 45, 130);
+        } else {
+          gRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.2));
+          gRenderer.shadowMap.enabled = true;
+          gScene.fog = null;
+        }
+        gRenderer.setSize(window.innerWidth, window.innerHeight);
+      };
+
+      function addBlock(x, y, z, w, h, d, color, type = 'platform') {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshStandardMaterial({ color, emissive: (type === 'killbrick' || type === 'finish') ? color : '#000', emissiveIntensity: 0.25 })
+        );
+        mesh.position.set(x, y, z);
+        mesh.receiveShadow = true;
+        mesh.castShadow = true;
+        gScene.add(mesh);
+        worldBlocks.push({ x, y, z, w, h, d, type, mesh });
+      }
+
+      function addCoin(x, y, z, val = 1) {
+        const mesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.55, 0.55, 0.2, 16),
+          new THREE.MeshStandardMaterial({ color: 0xFACC15, emissive: 0xCA8A04, emissiveIntensity: 0.4 })
+        );
+        mesh.rotation.x = Math.PI / 2;
+        mesh.position.set(x, y, z);
+        gScene.add(mesh);
+        worldCoins.push({ x, y, z, val, mesh, taken: false });
+      }
+
+      function rebuildInGamePlayerRig() {
+        if (!gScene || !playerRig || !playerPos) return;
+        const oldPos = playerPos.clone();
+        const oldRot = playerRig.group.rotation.y;
+        gScene.remove(playerRig.group);
+        playerRig = createAvatarRig();
+        playerRig.group.add(createNameTagSprite(state.username, isOwner()));
+        playerRig.group.position.copy(oldPos);
+        playerRig.group.rotation.y = oldRot;
+        gScene.add(playerRig.group);
+      }
+
+      function build3DGameScene(map, spawnOverride = null) {
+        const canvas = document.getElementById('game-3d-canvas');
+        if (!canvas || typeof THREE === 'undefined') return;
+        if (gAnimId) cancelAnimationFrame(gAnimId);
+
+        gScene = new THREE.Scene();
+        gCam = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
+        gRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        gRenderer.setSize(window.innerWidth, window.innerHeight);
+
+        worldBlocks = []; worldCoins = []; brainrots = []; carryingBrainrot = null;
+        tsunamiWave = null; tsunamiZ = 38; tycoonPads = []; tycoonLevel = 0; tycoonClock = 0;
+        remotePlayerRigs = {};
+        camYaw = 0; camPitch = 0.4;
+
+        gScene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.95));
+        const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+        dir.position.set(20, 42, 20);
+        dir.castShadow = true;
+        gScene.add(dir);
+
+        const statusEl = document.getElementById('hud-map-status');
+        respawnPos = new THREE.Vector3(0, 1.5, 0);
+
+        if (map.customParts && map.customParts.length > 0) {
+          gScene.background = new THREE.Color(0x87CEEB);
+          addBlock(0, -0.5, -15, 100, 1, 100, 0x94A3B8, 'platform');
+          map.customParts.forEach(p => {
+            if (p.type === 'coin') addCoin(p.x, p.y, p.z, 1);
+            else addBlock(p.x, p.y, p.z, p.w, p.h, p.d, p.color, p.type);
+          });
+          if (statusEl) statusEl.textContent = 'Custom Studio Map';
+        } else if (map.id === 'steal-a-brainrot') {
+          gScene.background = new THREE.Color(0x1E1B4B);
+          addBlock(0, -0.5, 0, 56, 1, 56, 0x312E81, 'platform');
+          addBlock(0, 0.05, 18, 16, 0.2, 12, 0x10B981, 'base');
+          addBlock(0, 0.05, -4, 44, 0.15, 12, 0x991B1B, 'platform');
+          respawnPos.set(0, 1.5, 18);
+          [
+            { name: '🦈 Tralalero Tralala', x: -10, z: -4, color: 0x38BDF8 },
+            { name: '🐊 Bombardiro Crocodilo', x: 0, z: -4, color: 0x22C55E },
+            { name: '🪵 Tung Tung Sahur', x: 10, z: -4, color: 0xF97316 }
+          ].forEach(b => {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), new THREE.MeshStandardMaterial({ color: b.color, emissive: b.color, emissiveIntensity: 0.3 }));
+            m.position.set(b.x, 1.1, b.z);
+            gScene.add(m);
+            brainrots.push({ ...b, homeX: b.x, homeZ: b.z, mesh: m });
+          });
+          if (statusEl) statusEl.textContent = 'Bawa Brainrot ke Zona Hijau!';
+        } else if (map.id === 'escape-tsunami') {
+          gScene.background = new THREE.Color(0x0284C7);
+          addBlock(0, -0.5, -35, 36, 1, 96, 0xFDE047, 'platform');
+          addBlock(0, 0.1, -35, 14, 0.3, 90, 0x475569, 'platform');
+          addBlock(0, 2.2, -55, 12, 1, 8, 0x3B82F6, 'platform');
+          addBlock(0, 4.6, -64, 12, 1, 8, 0x2563EB, 'platform');
+          addBlock(0, 7.0, -73, 14, 1, 12, 0x10B981, 'finish');
+          for (let z = -10; z >= -60; z -= 12) addCoin(z % 24 === 0 ? -3 : 3, 1.4, z, 1);
+          tsunamiWave = new THREE.Mesh(new THREE.BoxGeometry(44, 11, 8), new THREE.MeshStandardMaterial({ color: 0x0EA5E9, transparent: true, opacity: 0.82 }));
+          tsunamiWave.position.set(0, 5, tsunamiZ);
+          gScene.add(tsunamiWave);
+          if (statusEl) statusEl.textContent = 'Hindari Tsunami & Naik Menara!';
+        } else if (map.id === 'tycoon-pabrik') {
+          gScene.background = new THREE.Color(0x064E3B);
+          addBlock(0, -0.5, -10, 48, 1, 48, 0x1E293B, 'platform');
+          addBlock(0, 0.05, -10, 24, 0.2, 24, 0x334155, 'platform');
+          [
+            { label: 'Dropper 1 (Gratis)', x: -6, z: -4, cost: 0, built: false },
+            { label: 'Dropper 2 (5 R$)', x: -6, z: -12, cost: 5, built: false },
+            { label: 'Mega Upgrader (8 R$)', x: 6, z: -12, cost: 8, built: false }
+          ].forEach(pd => {
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 0.3, 20), new THREE.MeshStandardMaterial({ color: 0x22C55E, emissive: 0x16A34A, emissiveIntensity: 0.4 }));
+            m.position.set(pd.x, 0.25, pd.z);
+            gScene.add(m);
+            tycoonPads.push({ ...pd, mesh: m });
+          });
+          if (statusEl) statusEl.textContent = 'Injak Tombol Hijau Tycoon!';
+        } else if (map.id === 'menara-lava-obby') {
+          gScene.background = new THREE.Color(0x1F110B);
+          addBlock(0, -4, -30, 120, 0.5, 140, 0xDC2626, 'killbrick');
+          addBlock(0, 0, 0, 9, 1, 9, 0x334155, 'platform');
+          addBlock(0, 1.2, -9, 5, 1, 5, 0xF97316, 'platform');
+          addCoin(0, 2.6, -9, 1);
+          addBlock(0, 2.2, -18, 5, 1, 5, 0x22C55E, 'trampoline');
+          addBlock(0, 6.5, -28, 7, 1, 7, 0xF59E0B, 'checkpoint');
+          addBlock(0, 8.5, -42, 8, 1, 8, 0x10B981, 'finish');
+          if (statusEl) statusEl.textContent = 'Stage 1 • Menara Lava';
+        } else {
+          gScene.background = new THREE.Color(0x38BDF8);
+          const rainbow = [0xEF4444, 0xF97316, 0xFACC15, 0x22C55E, 0x3B82F6, 0x8B5CF6];
+          addBlock(0, 0, 0, 9, 1, 9, 0xFFFFFF, 'platform');
+          for (let i = 1; i <= 6; i++) {
+            const zPos = -i * 8, yPos = i * 0.7, xOff = i % 2 === 0 ? 1.8 : -1.8;
+            addBlock(xOff, yPos, zPos, 5.2, 1, 5.2, rainbow[(i - 1) % rainbow.length], i === 3 ? 'checkpoint' : 'platform');
+            if (i % 2 === 0) addCoin(xOff, yPos + 1.4, zPos, 1);
+          }
+          addBlock(0, 5.2, -56, 8, 1, 8, 0x10B981, 'finish');
+          if (statusEl) statusEl.textContent = 'Stage 1 • Mega Obby';
+        }
+
+        playerRig = createAvatarRig();
+        playerRig.group.add(createNameTagSprite(state.username, isOwner()));
+        playerPos = spawnOverride ? new THREE.Vector3(spawnOverride.x + 1.5, spawnOverride.y + 0.5, spawnOverride.z) : respawnPos.clone();
+        playerVelY = 0;
+        grounded = false;
+        playerRig.group.position.copy(playerPos);
+        gScene.add(playerRig.group);
+
+        bindGameTouchAndMouse(canvas);
+
+        const clock = new THREE.Clock();
+        const gameLoop = () => {
+          if (!currentGame) return;
+          gAnimId = requestAnimationFrame(gameLoop);
+          const dt = Math.min(clock.getDelta(), 0.05);
+          const elapsed = clock.getElapsedTime();
+
+          let inpF = joyFwd, inpR = joyRight;
+          if (keysDown['KeyW'] || keysDown['ArrowUp']) inpF += 1;
+          if (keysDown['KeyS'] || keysDown['ArrowDown']) inpF -= 1;
+          if (keysDown['KeyD'] || keysDown['ArrowRight']) inpR += 1;
+          if (keysDown['KeyA'] || keysDown['ArrowLeft']) inpR -= 1;
+
+          const mag = Math.hypot(inpF, inpR);
+          const moving = mag > 0.05;
+          currentMovingState = moving;
+          if (moving) {
+            currentEmote = null;
+            const nf = inpF / Math.max(1, mag);
+            const nr = inpR / Math.max(1, mag);
+            const fX = -Math.sin(camYaw), fZ = -Math.cos(camYaw);
+            const rX = Math.cos(camYaw), rZ = -Math.sin(camYaw);
+            const spd = pwrSpeed ? 0.42 : 0.22;
+            const mx = (fX * nf + rX * nr) * spd;
+            const mz = (fZ * nf + rZ * nr) * spd;
+            playerPos.x += mx;
+            playerPos.z += mz;
+            playerRig.group.rotation.y = Math.atan2(mx, mz);
+          }
+
+          if (pwrFly) {
+            playerVelY = 0;
+            grounded = true;
+            if (keysDown['Space']) playerPos.y += 0.25;
+            if (keysDown['ShiftLeft']) playerPos.y = Math.max(0.5, playerPos.y - 0.25);
+          } else {
+            const grav = pwrLowGrav ? 0.008 : 0.022;
+            playerVelY -= grav;
+            playerPos.y += playerVelY;
+            grounded = false;
+
+            for (const blk of worldBlocks) {
+              const topY = blk.y + blk.h / 2;
+              if (Math.abs(playerPos.x - blk.x) <= blk.w / 2 + 0.4 && Math.abs(playerPos.z - blk.z) <= blk.d / 2 + 0.4) {
+                if (playerVelY <= 0 && playerPos.y >= topY - 0.65 && playerPos.y <= topY + 0.45) {
+                  if (blk.type === 'killbrick') {
+                    window.showToast('🔥 Terkena Lava! Respawn...');
+                    window.respawnPlayer();
+                    break;
+                  }
+                  playerPos.y = topY;
+                  playerVelY = 0;
+                  grounded = true;
+
+                  if (blk.type === 'trampoline') {
+                    playerVelY = 0.6;
+                    grounded = false;
+                    playTone(520, 0.15);
+                  } else if (blk.type === 'checkpoint') {
+                    const cpPos = new THREE.Vector3(blk.x, topY + 1, blk.z);
+                    if (respawnPos.distanceTo(cpPos) > 1.5) {
+                      respawnPos.copy(cpPos);
+                      stageNum++;
+                      if (statusEl) statusEl.textContent = `Stage ${stageNum}`;
+                      playTone(660, 0.2);
+                      window.showToast(`🚩 Checkpoint Stage ${stageNum}!`);
+                    }
+                  } else if (blk.type === 'finish' && !mapWon) {
+                    mapWon = true;
+                    const rew = getBoundedMapReward(); // Strictly 5 to 10 Robux
+                    state.coins += rew;
+                    saveAccountState();
+                    syncUI();
+                    playTone(980, 0.3);
+                    window.showToast(`🏆 FINISH! Hadiah Map: +${rew} R$!`);
+                  }
+                }
+              }
+            }
+            if (playerPos.y < -15) window.respawnPlayer();
+          }
+
+          for (const c of worldCoins) {
+            if (c.taken) continue;
+            c.mesh.rotation.y += 0.05;
+            if (playerPos.distanceTo(new THREE.Vector3(c.x, c.y, c.z)) < 1.8) {
+              c.taken = true;
+              c.mesh.visible = false;
+              state.coins += c.val;
+              saveAccountState();
+              syncUI();
+              playTone(880, 0.12);
+              window.showToast(`🪙 +${c.val} R$!`);
+            }
+          }
+
+          brainrots.forEach(b => {
+            b.mesh.rotation.y += 0.04;
+            if (!carryingBrainrot && playerPos.distanceTo(b.mesh.position) < 2.2) {
+              carryingBrainrot = b;
+              playTone(600, 0.15);
+              window.showToast(`🧠 Mengambil ${b.name}!`);
+            }
+          });
+          if (carryingBrainrot) {
+            carryingBrainrot.mesh.position.set(playerPos.x, playerPos.y + 3.2, playerPos.z);
+            if (playerPos.z >= 13 && Math.abs(playerPos.x) <= 8) {
+              const rew = getBoundedMapReward(); // Strictly 5 to 10 Robux
+              state.coins += rew;
+              saveAccountState();
+              syncUI();
+              playTone(950, 0.25);
+              window.showToast(`💰 ${carryingBrainrot.name} diamankan! +${rew} R$!`);
+              carryingBrainrot.mesh.position.set(carryingBrainrot.homeX, 1.1, carryingBrainrot.homeZ);
+              carryingBrainrot = null;
+            }
+          }
+
+          if (tsunamiWave) {
+            tsunamiZ -= 0.14;
+            if (tsunamiZ < -85) { tsunamiZ = 38; mapWon = false; }
+            tsunamiWave.position.z = tsunamiZ;
+            if (Math.abs(playerPos.z - tsunamiZ) < 4.2 && playerPos.y < 6.2) {
+              window.showToast('🌊 Tersapu Tsunami!');
+              window.respawnPlayer();
+              tsunamiZ = 38;
+            }
+          }
+
+          if (tycoonPads.length > 0) {
+            tycoonPads.forEach(pd => {
+              if (!pd.built && playerPos.distanceTo(pd.mesh.position) < 2.2 && state.coins >= pd.cost) {
+                state.coins -= pd.cost;
+                pd.built = true;
+                pd.mesh.material.color.setHex(0x64748B);
+                tycoonLevel++;
+                const m = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.2, 2.6), new THREE.MeshStandardMaterial({ color: 0x2563EB }));
+                m.position.set(pd.x > 0 ? 2.5 : -2.5, 2.0, pd.z);
+                gScene.add(m);
+                saveAccountState();
+                syncUI();
+                playTone(720, 0.2);
+                window.showToast(`🏭 ${pd.label} aktif!`);
+              }
+            });
+            if (tycoonLevel > 0) {
+              tycoonClock += dt;
+              if (tycoonClock >= 4.0) {
+                tycoonClock = 0;
+                const inc = Math.min(10, Math.max(5, tycoonLevel * 3)); // Bounded 5..10 R$
+                state.coins += inc;
+                saveAccountState();
+                syncUI();
+                playTone(880, 0.1);
+                window.showToast(`🏭 Pabrik menghasilkan +${inc} R$!`);
+              }
+            }
+          }
+
+          if (pwrDisco) {
+            gScene.background = new THREE.Color().setHSL((elapsed * 0.25) % 1, 0.65, 0.25);
+          }
+
+          playerRig.group.position.copy(playerPos);
+          updateAvatarAnimation(playerRig, { time: elapsed, moving, grounded, fast: pwrSpeed, emote: currentEmote });
+
+          Object.values(remotePlayerRigs).forEach(entry => {
+            entry.rig.group.position.lerp(entry.targetPos, 0.25);
+            entry.rig.group.rotation.y += (entry.targetYaw - entry.rig.group.rotation.y) * 0.25;
+            updateAvatarAnimation(entry.rig, {
+              time: elapsed,
+              moving: entry.moving,
+              grounded: entry.grounded,
+              emote: entry.emote
+            });
+          });
+
+          broadcastPresence(false);
+
+          if (firstPerson) {
+            playerRig.group.visible = false;
+            gCam.position.set(playerPos.x, playerPos.y + 2.5, playerPos.z);
+            gCam.lookAt(playerPos.x - Math.sin(camYaw) * 10, playerPos.y + 2.5 - Math.sin(camPitch) * 5, playerPos.z - Math.cos(camYaw) * 10);
+          } else {
+            playerRig.group.visible = true;
+            gCam.position.set(
+              playerPos.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+              playerPos.y + 1.8 + Math.sin(camPitch) * camDist,
+              playerPos.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist
+            );
+            gCam.lookAt(playerPos.x, playerPos.y + 1.4, playerPos.z);
+          }
+
+          gRenderer.render(gScene, gCam);
+        };
+        gameLoop();
+      }
+
+      window.triggerJump = function () {
+        if (pwrFly && playerPos) {
+          playerPos.y += 1.5;
+          return;
+        }
+        if (grounded) {
+          playerVelY = pwrLowGrav ? 0.56 : 0.42;
+          grounded = false;
+          currentEmote = null;
+          playTone(420, 0.12);
+          broadcastPresence(true);
+        }
+      };
+
+      window.respawnPlayer = function () {
+        if (playerPos) {
+          playerPos.copy(respawnPos);
+          playerVelY = 0;
+          broadcastPresence(true);
+        }
+      };
+
+      function bindGameTouchAndMouse(canvas) {
+        let drag = false, tid = null, px = 0, py = 0;
+        canvas.onmousedown = e => { drag = true; px = e.clientX; py = e.clientY; };
+        window.addEventListener('mouseup', () => { drag = false; });
+        window.addEventListener('mousemove', e => {
+          if (!drag || !currentGame) return;
+          camYaw -= (e.clientX - px) * 0.0085;
+          camPitch = Math.max(-0.2, Math.min(1.25, camPitch + (e.clientY - py) * 0.0085));
+          px = e.clientX; py = e.clientY;
+        });
+
+        canvas.ontouchstart = e => {
+          const t = e.changedTouches[0];
+          if (t && tid === null) { tid = t.identifier; drag = true; px = t.clientX; py = t.clientY; }
+        };
+        canvas.ontouchend = e => {
+          for (const t of e.changedTouches) if (t.identifier === tid) { tid = null; drag = false; }
+        };
+        canvas.ontouchmove = e => {
+          if (!drag) return;
+          for (const t of e.changedTouches) {
+            if (t.identifier === tid) {
+              camYaw -= (t.clientX - px) * 0.011;
+              camPitch = Math.max(-0.2, Math.min(1.25, camPitch + (t.clientY - py) * 0.011));
+              px = t.clientX; py = t.clientY;
+            }
+          }
+        };
+
+        const jZone = document.getElementById('joystick-zone');
+        const jKnob = document.getElementById('joystick-knob');
+        if (!jZone || !jKnob) return;
+        let jTid = null;
+        const moveJoy = (cx, cy) => {
+          const r = jZone.getBoundingClientRect();
+          const maxR = r.width / 2 - 14;
+          let dx = cx - (r.left + r.width / 2);
+          let dy = cy - (r.top + r.height / 2);
+          const dist = Math.hypot(dx, dy);
+          if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+          jKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+          joyRight = dx / maxR;
+          joyFwd = -dy / maxR;
+        };
+        jZone.ontouchstart = e => { e.stopPropagation(); const t = e.changedTouches[0]; if (t) { jTid = t.identifier; moveJoy(t.clientX, t.clientY); } };
+        jZone.ontouchmove = e => { e.stopPropagation(); for (const t of e.changedTouches) if (t.identifier === jTid) moveJoy(t.clientX, t.clientY); };
+        jZone.ontouchend = e => { e.stopPropagation(); for (const t of e.changedTouches) if (t.identifier === jTid) { jTid = null; joyFwd = 0; joyRight = 0; jKnob.style.transform = 'translate(0,0)'; } };
+      }
+
+      // ==================== 10. OWNER IN-GAME 👑 ADMIN ABYUS MENU ====================
+      window.toggleAdminAbyusPanel = function (f) {
+        if (!isOwner()) return;
+        const p = document.getElementById('admin-abyus-panel');
+        if (p) p.classList.toggle('hidden', typeof f === 'boolean' ? !f : !p.classList.contains('hidden'));
+      };
+
+      let annTimer = null;
+      window.adminSendAnnounce = function (e) {
+        e.preventDefault();
+        if (!isOwner()) return;
+        const inp = document.getElementById('admin-announce-input');
+        const txt = (inp ? inp.value : '').trim();
+        if (!txt) return;
+        if (inp) inp.value = '';
+        const ev = { kind: 'announce', text: txt };
+        applyGlobalAdminEvent(ev);
+        if (bc) bc.postMessage({ type: 'admin_event', ev });
+      };
+
+      window.adminTriggerEvent = function (kind) {
+        if (!isOwner()) return;
+        const ev = { kind };
+        applyGlobalAdminEvent(ev);
+        if (bc) bc.postMessage({ type: 'admin_event', ev });
+      };
+
+      function applyGlobalAdminEvent(ev) {
+        if (!ev) return;
+        playTone(880, 0.25);
+        if (ev.kind === 'announce') {
+          const banner = document.getElementById('server-announce-banner');
+          const tEl = document.getElementById('server-announce-text');
+          if (tEl) tEl.textContent = ev.text || '';
+          if (banner) banner.classList.remove('hidden');
+          if (annTimer) clearTimeout(annTimer);
+          annTimer = setTimeout(() => { if (banner) banner.classList.add('hidden'); }, 6500);
+          return;
+        }
+        if (!gScene || !playerPos) return;
+        if (ev.kind === 'robux_rain') {
+          for (let i = 0; i < 10; i++) {
+            addCoin(playerPos.x + (Math.random() - 0.5) * 16, playerPos.y + 1.5, playerPos.z + (Math.random() - 0.5) * 16, 2);
+          }
+          window.showToast('🪙 EVENT OWNER: Hujan Robux!');
+        } else if (ev.kind === 'tsunami') {
+          if (!tsunamiWave) {
+            tsunamiWave = new THREE.Mesh(new THREE.BoxGeometry(50, 12, 8), new THREE.MeshStandardMaterial({ color: 0x0EA5E9, transparent: true, opacity: 0.8 }));
+            gScene.add(tsunamiWave);
+          }
+          tsunamiZ = playerPos.z + 28;
+          tsunamiWave.position.set(playerPos.x, 5, tsunamiZ);
+          window.showToast('🌊 EVENT OWNER: Tsunami Raksasa!');
+        } else if (ev.kind === 'disco') {
+          pwrDisco = !pwrDisco;
+          if (!pwrDisco) gScene.background = new THREE.Color(0x38BDF8);
+          window.showToast(`🪩 EVENT OWNER: Disco Party ${pwrDisco ? 'ON' : 'OFF'}`);
+        } else if (ev.kind === 'low_gravity') {
+          pwrLowGrav = !pwrLowGrav;
+          window.showToast(`🌙 EVENT OWNER: Low Gravity ${pwrLowGrav ? 'ON' : 'OFF'}`);
+        }
+      }
+
+      window.adminSpawnObject = function (kind) {
+        if (!isOwner() || !gScene || !playerPos) return;
+        const tx = playerPos.x, ty = playerPos.y, tz = playerPos.z - 4.5;
+        if (kind === 'coin') {
+          addCoin(tx, ty + 1.2, tz, 5);
+          window.showToast('🪙 Spawn Robux (+5 R$)!');
+        } else if (kind === 'brainrot') {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), new THREE.MeshStandardMaterial({ color: 0xF43F5E, emissive: 0xE11D48, emissiveIntensity: 0.4 }));
+          m.position.set(tx, ty + 1.1, tz);
+          gScene.add(m);
+          brainrots.push({ name: '👑 Rare Brainrot', x: tx, z: tz, homeX: tx, homeZ: tz, mesh: m });
+          window.showToast('🧠 Spawn Brainrot!');
+        } else if (kind === 'trampoline') {
+          addBlock(tx, ty - 0.3, tz, 4.5, 0.8, 4.5, 0x22C55E, 'trampoline');
+          window.showToast('🟩 Spawn Trampolin!');
+        } else if (kind === 'giant_part') {
+          addBlock(tx, ty + 1.5, tz - 2, 7, 4, 7, 0xF59E0B, 'platform');
+          window.showToast('🧱 Spawn Giant Part!');
+        }
+        playTone(680, 0.15);
+      };
+
+      window.adminGiveRobux = function (e) {
+        e.preventDefault();
+        if (!isOwner()) return;
+        const tInp = document.getElementById('admin-robux-target');
+        const aInp = document.getElementById('admin-robux-amount');
+        const target = (tInp ? tInp.value : '').trim();
+        const amt = parseInt(aInp ? aInp.value : '0') || 0;
+        if (!target || amt <= 0) return;
+
+        const grant = { target, amount: amt };
+        applyGlobalRobuxGrant(grant);
+        if (bc) bc.postMessage({ type: 'robux_grant', grant });
+        window.showToast(target.toLowerCase() === 'all' ? `🌐 +${amt} R$ dikirim ke SEMUA player!` : `💸 +${amt} R$ dikirim ke @${target}!`);
+      };
+
+      function applyGlobalRobuxGrant(grant) {
+        if (!grant || !state.isLoggedIn) return;
+        const tLower = (grant.target || '').toLowerCase();
+        if (tLower === 'all' || tLower === (state.username || '').toLowerCase()) {
+          state.coins += Number(grant.amount || 0);
+          saveAccountState();
+          syncUI();
+          playTone(1046, 0.25);
+          if (!isOwner()) window.showToast(`👑 Owner memberimu +${grant.amount} R$!`);
+        }
+      }
+
+      window.toggleOwnerPower = function (pwr) {
+        if (!isOwner()) return;
+        if (pwr === 'speed') {
+          pwrSpeed = !pwrSpeed;
+          const b = document.getElementById('btn-pwr-speed');
+          if (b) b.textContent = `⚡ Speed: ${pwrSpeed ? 'ON' : 'OFF'}`;
+          window.showToast(`⚡ Speed: ${pwrSpeed ? 'ON' : 'OFF'}`);
+        } else if (pwr === 'fly') {
+          pwrFly = !pwrFly;
+          const b = document.getElementById('btn-pwr-fly');
+          if (b) b.textContent = `🕊️ Fly: ${pwrFly ? 'ON' : 'OFF'}`;
+          window.showToast(`🕊️ Fly: ${pwrFly ? 'ON' : 'OFF'}`);
+        }
+      };
+
+      // ==================== 11. INPUT & RESIZE HANDLERS ====================
+      window.addEventListener('keydown', e => {
+        keysDown[e.code] = true;
+        if (e.code === 'Space' && currentGame && document.activeElement && document.activeElement.tagName !== 'INPUT') {
+          e.preventDefault();
+          window.triggerJump();
+        }
+      });
+      window.addEventListener('keyup', e => { keysDown[e.code] = false; });
+
+      window.addEventListener('resize', () => {
+        if (currentGame && gRenderer && gCam) {
+          gCam.aspect = window.innerWidth / window.innerHeight;
+          gCam.updateProjectionMatrix();
+          gRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+      });
+
+      // ==================== 12. AUTO-RESUME SAVED ACCOUNT ON LOAD ====================
+      const savedActiveUsn = localStorage.getItem(LS_ACTIVE_USER_KEY);
+      if (savedActiveUsn && accountsDB[savedActiveUsn.toLowerCase()]) {
+        loadUserSession(savedActiveUsn.toLowerCase());
+      } else {
+        const authEl = document.getElementById('auth-overlay');
+        if (authEl) authEl.classList.remove('hidden');
+        window.switchAuthTab('register');
+        renderGamesGrid();
+      }
+    })();
+  </script>
 </body>
 </html>
